@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+.idea/
+storage/*
+!storage/uploads/
+storage/uploads/*
+!storage/uploads/.gitkeep
+*.log
+
