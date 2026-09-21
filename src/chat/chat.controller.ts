@@ -1,25 +1,28 @@
-import {
-    BadRequestException,
-    Body,
-    Controller,
-    Post,
-} from '@nestjs/common';
+import { Body, Controller, Post } from '@nestjs/common';
 import { ChatService } from './chat.service';
+import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
+import {
+    askQuestionSchema,
+    type AskQuestionDto,
+} from './dto/requests/ask-question.dto';
+import type {
+    AskQuestionResponseDto,
+} from './dto/responses/ask-question-response.dto';
 
 @Controller('chat')
 export class ChatController {
     constructor(private readonly chatService: ChatService) {}
 
     @Post()
-    ask(@Body() body: { question?: unknown } | undefined) {
-        const question = body?.question;
+    ask(
+        @Body(new ZodValidationPipe(askQuestionSchema))
+        body: AskQuestionDto,
+    ): AskQuestionResponseDto {
+        const result = this.chatService.ask(body.question);
 
-        if (typeof question !== 'string' || !question.trim()) {
-            throw new BadRequestException(
-                'Поле question должно содержать непустую строку.',
-            );
-        }
-
-        return this.chatService.ask(question.trim());
+        return {
+            question: result.question,
+            answer: result.answer,
+        };
     }
 }
