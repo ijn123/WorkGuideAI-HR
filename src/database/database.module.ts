@@ -1,3 +1,8 @@
-// WorkGuide AI / database / database.module
-// TODO: реализовать при работе над соответствующей задачей.
-export {};
+import { Module } from '@nestjs/common';
+import { DatabaseService } from './database.service';
+
+@Module({
+    providers: [DatabaseService],
+    exports: [DatabaseService],
+})
+export class DatabaseModule {}
