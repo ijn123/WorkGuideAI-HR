@@ -1,11 +1,16 @@
 import { Injectable } from '@nestjs/common';
+import { GeminiService } from '../ai/gemini.service';
 
 @Injectable()
 export class ChatService {
-    ask(question: string) {
+    constructor(private readonly geminiService: GeminiService) {}
+
+    async ask(question: string) {
+        const answer = await this.geminiService.ask(question);
+
         return {
             question,
-            answer: 'Вопрос получен. Gemini пока не подключён.',
+            answer,
         };
     }
 }

@@ -1,3 +1,8 @@
-// WorkGuide AI / ai / ai.module
-// TODO: реализовать при работе над соответствующей задачей.
-export {};
+import { Module } from '@nestjs/common';
+import { GeminiService } from './gemini.service';
+
+@Module({
+    providers: [GeminiService],
+    exports: [GeminiService],
+})
+export class AiModule {}
