@@ -14,11 +14,11 @@ export class ChatController {
     constructor(private readonly chatService: ChatService) {}
 
     @Post()
-    ask(
+    async ask(
         @Body(new ZodValidationPipe(askQuestionSchema))
         body: AskQuestionDto,
-    ): AskQuestionResponseDto {
-        const result = this.chatService.ask(body.question);
+    ): Promise<AskQuestionResponseDto> {
+        const result = await this.chatService.ask(body.question);
 
         return {
             question: result.question,
