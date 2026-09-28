@@ -148,3 +148,72 @@ docker compose stop postgres
 Пароль задаётся при первой инициализации базы.
 Изменение `POSTGRES_PASSWORD` в `.env` не меняет пароль
 в уже созданной базе.
+
+### Пользователь базы данных с правами чтения
+
+NestJS подключается к PostgreSQL под пользователем `workguide_reader`.
+Перед его созданием должны быть выполнены миграции для четырёх таблиц.
+
+1. Открой PostgreSQL под администратором:
+
+```powershell
+docker compose exec postgres psql -U workguide -d workguide_ai
+```
+
+2. Выполни SQL один раз для каждой новой базы:
+
+```sql
+CREATE ROLE workguide_reader
+    LOGIN
+    NOSUPERUSER
+    NOCREATEDB
+    NOCREATEROLE
+    NOREPLICATION
+    NOBYPASSRLS;
+
+GRANT CONNECT ON DATABASE workguide_ai TO workguide_reader;
+
+GRANT USAGE ON SCHEMA public TO workguide_reader;
+
+GRANT SELECT ON TABLE
+    public.employees,
+    public.hr_requests,
+    public.leave_balances,
+    public.onboarding_tasks
+TO workguide_reader;
+```
+
+Если роль уже существует, повторять `CREATE ROLE` не нужно.
+
+3. Задай отдельный пароль интерактивно:
+
+```text
+\password workguide_reader
+```
+
+Введи пароль дважды, затем выйди:
+
+```text
+\q
+```
+
+4. Укажи в локальном `.env`:
+
+```dotenv
+DB_USER=workguide_reader
+DB_PASSWORD=установленный_пароль
+```
+
+`POSTGRES_PASSWORD` остаётся паролем администратора.
+Не добавляй рабочий `.env` и реальные пароли в Git.
+
+5. Запусти приложение:
+
+```powershell
+npm run start:dev
+```
+
+Если оно уже запущено, сначала останови его через Ctrl+C.
+
+Проверка API: http://localhost:3000/employees
+Ожидается JSON-массив сотрудников.

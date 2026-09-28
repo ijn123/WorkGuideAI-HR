@@ -3,6 +3,8 @@ import { AppController } from './app.controller';
 import {ChatModule} from "./chat/chat.module";
 import {ConfigModule} from "@nestjs/config";
 import { DatabaseModule } from './database/database.module';
+import { EmployeesModule } from './employees/employees.module';
+import { HrModule } from './hr/hr.module';
 
 @Module({
     imports: [
@@ -11,6 +13,8 @@ import { DatabaseModule } from './database/database.module';
         }),
         ChatModule,
         DatabaseModule,
+        EmployeesModule,
+        HrModule,
     ],
     controllers: [AppController],
     providers: [],
