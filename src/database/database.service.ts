@@ -5,7 +5,7 @@ import {
     OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Pool } from 'pg';
+import { Pool, type QueryResultRow } from 'pg';
 
 @Injectable()
 export class DatabaseService
@@ -20,7 +20,7 @@ export class DatabaseService
             port: Number(this.config.getOrThrow<string>('DB_PORT')),
             database: this.config.getOrThrow<string>('DB_NAME'),
             user: this.config.getOrThrow<string>('DB_USER'),
-            password: this.config.getOrThrow<string>('POSTGRES_PASSWORD'),
+            password: this.config.getOrThrow<string>('DB_PASSWORD'),
             connectionTimeoutMillis: 5000,
         });
 
@@ -36,6 +36,15 @@ export class DatabaseService
         await this.pool.query('SELECT 1');
 
         this.logger.log('Подключение к PostgreSQL установлено.');
+    }
+
+    async query<T extends QueryResultRow>(
+        sql: string,
+        params: unknown[] = [],
+    ): Promise<T[]> {
+        const result = await this.pool.query<T>(sql, params);
+
+        return result.rows;
     }
 
     async onModuleDestroy(): Promise<void> {
