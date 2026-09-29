@@ -14,9 +14,10 @@
 - NestJS подключается к базе и проверяет соединение запросом SELECT 1.
 - Настройки окружения вынесены в .env, шаблон — в .env.example.
 - Подключение Gemini API.
+- Таблицы, миграции и тестовые данные PostgreSQL.
 
 Пока не реализовано:
-- Таблицы, миграции и тестовые данные PostgreSQL.
+
 - Маршруты для сотрудников и HR-заявок.
 - Загрузка и обработка документов.
 - Векторный поиск через Qdrant.
@@ -149,71 +150,21 @@ docker compose stop postgres
 Изменение `POSTGRES_PASSWORD` в `.env` не меняет пароль
 в уже созданной базе.
 
-### Пользователь базы данных с правами чтения
+## Схема HR-базы и тестовые данные
 
-NestJS подключается к PostgreSQL под пользователем `workguide_reader`.
-Перед его созданием должны быть выполнены миграции для четырёх таблиц.
+Созданы таблицы:
+- employees — сотрудники.
+- hr_requests — обращения в HR.
+- leave_balances — годовые балансы отпуска.
+- onboarding_tasks — задачи адаптации.
 
-1. Открой PostgreSQL под администратором:
+Миграции: src/database/migrations/001–004.
+Применяются вручную через psql по порядку, один раз.
 
-```powershell
-docker compose exec postgres psql -U workguide -d workguide_ai
-```
+Тестовые данные: src/database/seeds/001–004.
+Загружаются после миграций по порядку.
+Повторный запуск пропускает существующие записи по ключам конфликта
+и не обновляет их.
 
-2. Выполни SQL один раз для каждой новой базы:
-
-```sql
-CREATE ROLE workguide_reader
-    LOGIN
-    NOSUPERUSER
-    NOCREATEDB
-    NOCREATEROLE
-    NOREPLICATION
-    NOBYPASSRLS;
-
-GRANT CONNECT ON DATABASE workguide_ai TO workguide_reader;
-
-GRANT USAGE ON SCHEMA public TO workguide_reader;
-
-GRANT SELECT ON TABLE
-    public.employees,
-    public.hr_requests,
-    public.leave_balances,
-    public.onboarding_tasks
-TO workguide_reader;
-```
-
-Если роль уже существует, повторять `CREATE ROLE` не нужно.
-
-3. Задай отдельный пароль интерактивно:
-
-```text
-\password workguide_reader
-```
-
-Введи пароль дважды, затем выйди:
-
-```text
-\q
-```
-
-4. Укажи в локальном `.env`:
-
-```dotenv
-DB_USER=workguide_reader
-DB_PASSWORD=установленный_пароль
-```
-
-`POSTGRES_PASSWORD` остаётся паролем администратора.
-Не добавляй рабочий `.env` и реальные пароли в Git.
-
-5. Запусти приложение:
-
-```powershell
-npm run start:dev
-```
-
-Если оно уже запущено, сначала останови его через Ctrl+C.
-
-Проверка API: http://localhost:3000/employees
-Ожидается JSON-массив сотрудников.
+Каждая таблица содержит по три вымышленные записи.
+Проверены количество записей и расчёт остатков отпуска через JOIN.
