@@ -15,14 +15,27 @@ export class DatabaseService
     private readonly pool: Pool;
 
     constructor(private readonly config: ConfigService) {
-        this.pool = new Pool({
+        const useSsl =
+            this.config.get<string>('DB_SSL', 'false').toLowerCase() === 'true';
+
+        const poolConfig = {
             host: this.config.getOrThrow<string>('DB_HOST'),
             port: Number(this.config.getOrThrow<string>('DB_PORT')),
             database: this.config.getOrThrow<string>('DB_NAME'),
             user: this.config.getOrThrow<string>('DB_USER'),
             password: this.config.getOrThrow<string>('DB_PASSWORD'),
             connectionTimeoutMillis: 5000,
-        });
+
+            ...(useSsl
+                ? {
+                      ssl: {
+                          rejectUnauthorized: false,
+                      },
+                  }
+                : {}),
+        };
+
+        this.pool = new Pool(poolConfig);
 
         this.pool.on('error', (error: Error) => {
             this.logger.error(
