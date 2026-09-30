@@ -20,7 +20,7 @@ export class DatabaseService
 
         const poolConfig = {
             host: this.config.getOrThrow<string>('DB_HOST'),
-            port: Number(this.config.getOrThrow<string>('DB_PORT')),
+            port: this.config.getOrThrow<number>('DB_PORT'),
             database: this.config.getOrThrow<string>('DB_NAME'),
             user: this.config.getOrThrow<string>('DB_USER'),
             password: this.config.getOrThrow<string>('DB_PASSWORD'),

@@ -25,6 +25,7 @@
   "scripts": {
     "build": "nest build",
     "start": "nest start",
-    "start:dev": "nest start --watch"
+    "start:dev": "nest start --watch",
+    "db:migrate": "node --env-file=.env scripts/migrate.mjs"
   }
 }

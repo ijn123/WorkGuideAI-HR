@@ -6,7 +6,8 @@ INSERT INTO onboarding_tasks (
     title,
     description,
     status,
-    due_date
+    due_date,
+    completed_at
 )
 VALUES
     (
@@ -15,7 +16,8 @@ VALUES
         'Read HR policies',
         'Review the internal employee handbook.',
         'completed',
-        '2026-09-15'
+        '2026-09-15',
+        TIMESTAMPTZ '2026-09-16 12:00:00+00'
     ),
     (
         '40000000-0000-4000-8000-000000000002',
@@ -23,7 +25,8 @@ VALUES
         'Complete security training',
         'Complete the introductory information security course.',
         'in_progress',
-        '2026-09-30'
+        '2026-09-30',
+        NULL
     ),
     (
         '40000000-0000-4000-8000-000000000003',
@@ -31,6 +34,7 @@ VALUES
         'Meet the team',
         'Attend an introductory meeting with the Finance team.',
         'pending',
+        NULL,
         NULL
     )
     ON CONFLICT (id) DO NOTHING;

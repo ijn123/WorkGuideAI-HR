@@ -1,3 +1,10 @@
-// WorkGuide AI / documents / documents.module
-// TODO: реализовать при работе над соответствующей задачей.
-export {};
+import { Module } from '@nestjs/common';
+import { DatabaseModule } from '../database/database.module';
+import { DocumentsRepository } from './documents.repository';
+
+@Module({
+    imports: [DatabaseModule],
+    providers: [DocumentsRepository],
+    exports: [DocumentsRepository],
+})
+export class DocumentsModule {}

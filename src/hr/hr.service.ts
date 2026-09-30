@@ -12,6 +12,7 @@ import {
 import type {
     HrRequestResponseDto,
 } from './dto/responses/hr-request-response.dto';
+import { OnboardingTaskStatus } from './entities/onboarding-task.entity';
 
 
 @Injectable()
@@ -49,11 +50,11 @@ export class HrService {
         }
 
         return leaveBalanceResponseSchema.parse({
-            employeeId: balance.employee_id,
+            employeeId: balance.employeeId,
             year: balance.year,
-            entitledDays: Number(balance.entitled_days),
-            usedDays: Number(balance.used_days),
-            remainingDays: Number(balance.remaining_days),
+            entitledDays: balance.entitledDays,
+            usedDays: balance.usedDays,
+            remainingDays: balance.remainingDays,
         });
     }
 
@@ -68,10 +69,15 @@ export class HrService {
         return tasks.map((task) =>
             onboardingTaskResponseSchema.parse({
                 id: task.id,
-                employeeId: task.employee_id,
+                employeeId: task.employeeId,
                 title: task.title,
-                status: task.status,
-                dueDate: task.due_date,
+                status:
+                    task.status === OnboardingTaskStatus.TODO
+                        ? 'pending'
+                        : task.status,
+                dueDate: task.dueAt
+                    ? task.dueAt.toISOString().slice(0, 10)
+                    : null,
             }),
         );
     }

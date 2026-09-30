@@ -1,27 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
+import {
+    toHrRequestEntity,
+    type HrRequestRow,
+} from './mappers/hr-request-entity.mapper';
+import {
+    toLeaveBalanceEntity,
+    type LeaveBalanceRow,
+} from './mappers/leave-balance-entity.mapper';
+import {
+    toOnboardingTaskEntity,
+    type OnboardingTaskRow,
+} from './mappers/onboarding-task-entity.mapper';
+import type { HrRequest } from './entities/hr-request.entity';
+import type { LeaveBalance } from './entities/leave-balance.entity';
+import type { OnboardingTask } from './entities/onboarding-task.entity';
 
-export interface HrRequestRow {
-    id: string;
-    subject: string;
-    status: 'pending' | 'approved' | 'rejected';
-}
-
-export interface LeaveBalanceRow {
-    employee_id: string;
-    year: number;
-    entitled_days: string;
-    used_days: string;
-    remaining_days: string;
-}
-
-export interface OnboardingTaskRow {
-    id: string;
-    employee_id: string;
-    title: string;
-    status: 'pending' | 'in_progress' | 'completed';
-    due_date: string | null;
-}
 
 @Injectable()
 export class HrRepository {
@@ -30,59 +24,70 @@ export class HrRepository {
 
     async findRequestsByEmployeeId(
         employeeId: string,
-    ): Promise<HrRequestRow[]> {
-        return this.database.query<HrRequestRow>(
+    ): Promise<HrRequest[]> {
+        const rows = await this.database.query<HrRequestRow>(
             `
-                SELECT id,
-                       subject,
-                       status
-                FROM hr_requests
-                WHERE employee_id = $1
-                ORDER BY created_at DESC, id LIMIT 100
-            `,
+      SELECT
+        id,
+        employee_id,
+        subject,
+        description,
+        status
+      FROM hr_requests
+      WHERE employee_id = $1
+      ORDER BY created_at DESC, id
+      LIMIT 100
+    `,
             [employeeId],
         );
+
+        return rows.map(toHrRequestEntity);
     }
 
     async findLeaveBalance(
         employeeId: string,
         year: number,
-    ): Promise<LeaveBalanceRow | null> {
+    ): Promise<LeaveBalance | null> {
         const rows = await this.database.query<LeaveBalanceRow>(
             `
-      SELECT
-        employee_id,
-        year,
-        entitled_days,
-        used_days,
-        entitled_days - used_days AS remaining_days
-      FROM leave_balances
-      WHERE employee_id = $1
-        AND year = $2
-    `,
+                SELECT
+                    id,
+                    employee_id,
+                    year,
+                    entitled_days,
+                    used_days
+                FROM leave_balances
+                WHERE employee_id = $1
+                  AND year = $2
+            `,
             [employeeId, year],
         );
 
-        return rows[0] ?? null;
+        const row = rows[0];
+
+        return row ? toLeaveBalanceEntity(row) : null;
     }
 
     async findOnboardingTasksByEmployeeId(
         employeeId: string,
-    ): Promise<OnboardingTaskRow[]> {
-        return this.database.query<OnboardingTaskRow>(
+    ): Promise<OnboardingTask[]> {
+        const rows = await this.database.query<OnboardingTaskRow>(
             `
       SELECT
         id,
         employee_id,
         title,
         status,
-        to_char(due_date, 'YYYY-MM-DD') AS due_date
+        to_char(due_date, 'YYYY-MM-DD') AS due_date,
+        completed_at
       FROM onboarding_tasks
       WHERE employee_id = $1
-      ORDER BY due_date ASC NULLS LAST, id
+      ORDER BY onboarding_tasks.due_date ASC NULLS LAST, id
       LIMIT 100
     `,
             [employeeId],
         );
+
+        return rows.map(toOnboardingTaskEntity);
     }
 }
