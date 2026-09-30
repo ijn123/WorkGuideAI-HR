@@ -17,9 +17,9 @@ export class EmployeesService {
         return employees.map((employee) =>
             toEmployeeResponse({
                 id: employee.id,
-                firstName: employee.first_name,
-                lastName: employee.last_name,
-                workEmail: employee.work_email,
+                firstName: employee.firstName,
+                lastName: employee.lastName,
+                workEmail: employee.workEmail,
                 department: employee.department,
             }),
         );
