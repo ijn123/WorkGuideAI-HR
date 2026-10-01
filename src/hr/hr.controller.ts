@@ -6,7 +6,7 @@ import {
     ParseIntPipe,
     ParseUUIDPipe,
 } from '@nestjs/common';
-import { HrService } from './hr.service';
+import { OnboardingTasksService } from './onboarding-tasks.service';
 import type {
     HrRequestResponseDto,
 } from './dto/responses/hr-request-response.dto';
@@ -16,10 +16,17 @@ import type {
 import type {
     OnboardingTaskResponseDto,
 } from './dto/responses/onboarding-task-response.dto';
+import { HrRequestsService } from './hr-requests.service';
+import { LeaveBalancesService } from './leave-balances.service';
+
 
 @Controller('hr')
 export class HrController {
-    constructor(private readonly hrService: HrService) {}
+    constructor(
+        private readonly hrRequestsService: HrRequestsService,
+        private readonly leaveBalancesService: LeaveBalancesService,
+        private readonly onboardingTasksService: OnboardingTasksService,
+    ) {}
 
     @Get('employees/:employeeId/leave-balance/:year')
     getLeaveBalance(
@@ -34,7 +41,7 @@ export class HrController {
             );
         }
 
-        return this.hrService.getLeaveBalance(employeeId, year);
+        return this.leaveBalancesService.getLeaveBalance(employeeId, year);
     }
 
     @Get('employees/:employeeId/requests')
@@ -42,7 +49,7 @@ export class HrController {
         @Param('employeeId', new ParseUUIDPipe({ version: '4' }))
         employeeId: string,
     ): Promise<HrRequestResponseDto[]> {
-        return this.hrService.findRequestsByEmployeeId(employeeId);
+        return this.hrRequestsService.findRequestsByEmployeeId(employeeId);
     }
 
     @Get('employees/:employeeId/onboarding-tasks')
@@ -50,7 +57,7 @@ export class HrController {
         @Param('employeeId', new ParseUUIDPipe({ version: '4' }))
         employeeId: string,
     ): Promise<OnboardingTaskResponseDto[]> {
-        return this.hrService.findOnboardingTasksByEmployeeId(
+        return this.onboardingTasksService.findOnboardingTasksByEmployeeId(
             employeeId,
         );
     }

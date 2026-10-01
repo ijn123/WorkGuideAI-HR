@@ -5,9 +5,14 @@ import {
     toEmployeeEntity,
     type EmployeeRow,
 } from './mappers/employee-entity.mapper';
+import type {
+    EmployeesRepositoryInterface,
+} from './interfaces/employees-repository.interface';
 
 @Injectable()
-export class EmployeesRepository {
+export class EmployeesRepository
+    implements EmployeesRepositoryInterface
+{
     constructor(private readonly database: DatabaseService) {}
 
     async findAll(): Promise<Employee[]> {
