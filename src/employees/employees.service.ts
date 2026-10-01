@@ -1,5 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import { EmployeesRepository } from './employees.repository';
+import { Inject, Injectable } from '@nestjs/common';
+import {
+    EMPLOYEES_REPOSITORY,
+    type EmployeesRepositoryInterface,
+} from './interfaces/employees-repository.interface';
 import { toEmployeeResponse } from './mappers/employee-response.mapper';
 import type {
     EmployeeResponseDto,
@@ -8,7 +11,8 @@ import type {
 @Injectable()
 export class EmployeesService {
     constructor(
-        private readonly employeesRepository: EmployeesRepository,
+        @Inject(EMPLOYEES_REPOSITORY)
+        private readonly employeesRepository: EmployeesRepositoryInterface,
     ) {}
 
     async findAll(): Promise<EmployeeResponseDto[]> {
