@@ -40,6 +40,14 @@ async function main() {
         throw new Error('DB_PORT должен быть целым числом от 1 до 65535');
     }
 
+    const sslValue = (process.env.DB_SSL ?? 'false').toLowerCase();
+
+    if (sslValue !== 'true' && sslValue !== 'false') {
+        throw new Error('DB_SSL должен быть true или false');
+    }
+
+    const caCertificate = process.env.DB_SSL_CA_CERT;
+
     const directory = new URL('../src/database/migrations/', import.meta.url);
 
     const filenames = (await readdir(directory))
@@ -67,6 +75,13 @@ async function main() {
         user: required('DB_MIGRATION_USER'),
         password: required('DB_MIGRATION_PASSWORD'),
         connectionTimeoutMillis: 5000,
+        // Проверка сертификата остаётся включённой.
+        ssl: sslValue === 'true'
+            ? {
+                rejectUnauthorized: true,
+                ...(caCertificate?.trim() ? { ca: caCertificate } : {}),
+            }
+            : false,
     });
 
     await client.connect();

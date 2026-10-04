@@ -26,6 +26,6 @@
     "build": "nest build",
     "start": "nest start",
     "start:dev": "nest start --watch",
-    "db:migrate": "node --env-file=.env scripts/migrate.mjs"
+    "db:migrate": "node --env-file-if-exists=.env scripts/migrate.mjs"
   }
 }
