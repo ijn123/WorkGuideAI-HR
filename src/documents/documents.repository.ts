@@ -5,9 +5,15 @@ import {
     toDocumentEntity,
     type DocumentRow,
 } from './mappers/document-entity.mapper';
+import type {
+    DocumentsRepositoryInterface,
+} from './interfaces/documents-repository.interface';
+
 
 @Injectable()
-export class DocumentsRepository {
+export class DocumentsRepository
+    implements DocumentsRepositoryInterface
+{
     constructor(private readonly database: DatabaseService) {}
 
     async findAll(): Promise<Document[]> {
