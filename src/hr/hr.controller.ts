@@ -5,7 +5,11 @@ import {
     Param,
     ParseIntPipe,
     ParseUUIDPipe,
+    UseGuards,
 } from '@nestjs/common';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { EmployeeRole } from '../employees/employee.entity';
 import { HrService } from './hr.service';
 import type {
     HrRequestResponseDto,
@@ -18,6 +22,8 @@ import type {
 } from './dto/responses/onboarding-task-response.dto';
 
 @Controller('hr')
+@UseGuards(RolesGuard)
+@Roles(EmployeeRole.HR, EmployeeRole.ADMIN)
 export class HrController {
     constructor(private readonly hrService: HrService) {}
 
