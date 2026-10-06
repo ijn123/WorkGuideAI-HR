@@ -15,6 +15,6 @@ import {
             useClass: DocumentsRepository,
         },
     ],
-    exports: [DocumentsService],
+    exports: [DocumentsService, DOCUMENTS_REPOSITORY],
 })
 export class DocumentsModule {}
