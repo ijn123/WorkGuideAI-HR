@@ -21,15 +21,17 @@
 - Подключение приложения под пользователем с правами чтения.
 - Запуск миграций с историей выполнения и контрольными суммами.
 - Тестовые данные для четырёх HR-таблиц.
+- JWT authentication with login, protected endpoints, and current-employee
+  ownership checks on HR routes.
 
 Пока не реализовано:
-- Авторизация и ограничение доступа текущим сотрудником.
+- Role-based authorization (RBAC); it is not implemented as part of issue #9.
 - HTTP-маршруты документов, загрузка и обработка файлов.
 - Векторный поиск через Qdrant.
 - Маршрутизация вопросов DOCUMENTS / SQL / HYBRID.
 
-HR-маршруты пока принимают employeeId из URL.
-Проверка UUID не заменяет проверку прав доступа.
+HR routes keep `employeeId` in the URL and require it to match the authenticated
+employee's UUID. Protected endpoints require a valid JWT.
 Для демонстрации используются вымышленные данные.
 
 Запуск приложения: npm run start:dev.
@@ -48,7 +50,7 @@ LangGraph, Ollama и Qwen не используются. Модели Gemini д�
 
 ## Назначение модулей
 
-- auth: вход, текущий пользователь, роли.
+- auth: login, JWT verification, and current authenticated user extraction; RBAC is not implemented.
 - employees: профиль сотрудника и связь с авторизацией.
 - database: подключение PostgreSQL, миграции и тестовые данные.
 - hr: остатки отпусков, обращения и задачи адаптации.
@@ -65,7 +67,10 @@ LangGraph, Ollama и Qwen не используются. Модели Gemini д�
 
 ## Правила реализации
 
-Получать employeeId из проверенной авторизации. HR-сервис ограничивает выборку текущим сотрудником. Gemini выбирает разрешённую операцию, а репозиторий выполняет заранее написанный параметризованный SQL. Внешний ответ модели проверяется Zod. Отсутствие источников означает отсутствие подтверждённого ответа. Не имитировать результаты базы. Документы для демонстрации и сотрудники вымышленные.
+Use `employeeId` from verified authentication. HR controllers check ownership
+and pass the authenticated employee ID to HR services.
+
+Gemini выбирает разрешённую операцию, а репозиторий выполняет заранее написанный параметризованный SQL. Внешний ответ модели проверяется Zod. Отсутствие источников означает отсутствие подтверждённого ответа. Не имитировать результаты базы. Документы для демонстрации и сотрудники вымышленные.
 
 ## Два процесса
 
@@ -310,3 +315,96 @@ foreach ($file in $seedFiles) {
 после миграции 007 выполните seed 005, затем миграцию 008.
 Для остальных существующих завершённых задач нужны достоверные
 даты завершения — автоматически подставлять сроки задач нельзя.
+
+## Authentication
+
+Set both required environment variables before starting the application:
+
+- `JWT_SECRET`: a randomly generated secret with at least 32 characters.
+- `JWT_EXPIRES_IN_SECONDS`: a positive integer token lifetime in seconds.
+
+Neither value has an application default. Keep real secrets out of source code
+and documentation. The `3600` value in `.env.example` is an example configuration.
+
+After explicitly provisioning an existing employee as described below, call
+`POST /auth/login` with fictional example values replaced by your local credentials:
+
+```json
+{
+  "workEmail": "employee@example.com",
+  "password": "example-password"
+}
+```
+
+`workEmail` is trimmed and lowercased; the password is not trimmed or normalized.
+Only active employees with provisioned credentials can log in. Successful login
+returns HTTP 200 with this response shape:
+
+```json
+{
+  "accessToken": "<jwt>",
+  "tokenType": "Bearer",
+  "expiresIn": 3600
+}
+```
+
+`expiresIn` reflects `JWT_EXPIRES_IN_SECONDS`; `3600` above is an example, not a
+hard-coded application TTL. Invalid request DTOs return 400. Authentication
+failures return a generic 401 without revealing whether email, password,
+credential provisioning, or employee status caused the failure.
+
+Send the returned token on protected requests:
+
+```http
+Authorization: Bearer <token>
+```
+
+Missing, invalid, or expired authentication returns 401. The employee must still
+exist and be active when making a protected request.
+
+| Access | Endpoint |
+| --- | --- |
+| Public | `GET /` |
+| Public | `POST /auth/login` |
+| Protected | `GET /employees` |
+| Protected | `POST /chat` |
+| Protected | `GET /hr/employees/:employeeId/leave-balance/:year` |
+| Protected | `GET /hr/employees/:employeeId/requests` |
+| Protected | `GET /hr/employees/:employeeId/onboarding-tasks` |
+
+For authenticated HR requests, `:employeeId` must be the authenticated employee's
+UUID. A different valid UUID returns 403 before the HR service is called.
+Malformed UUIDs retain the existing 400 request-validation behavior (UUID v4).
+There is no admin/HR role bypass. Role-based authorization is not implemented
+as part of issue #9.
+
+## Explicit local/demo password provisioning
+
+Provisioning is an explicit developer/admin action. Apply migration 010 and
+create or seed the employee before provisioning.
+This command updates only the password hash of an existing employee; it never
+creates employees or runs automatically during startup, migrations, or seeds.
+
+Set these variables in your local shell environment before running the command:
+
+- `AUTH_PROVISION_EMAIL`: the existing employee's work email (trimmed and lowercased).
+- `AUTH_PROVISION_PASSWORD`: the password, supplied through the environment only.
+  Do not pass it as a command-line argument or commit it to source or seed files.
+  The password is preserved exactly, including whitespace, case, and Unicode.
+- `AUTH_PROVISION_OVERWRITE`: optional, exactly `true` or `false`; defaults to `false`.
+  An existing non-NULL hash is refused unless overwrite is explicitly `true`.
+
+```bash
+npm run auth:provision
+```
+
+The command loads existing database settings from `.env` when present and uses
+`DB_MIGRATION_USER` / `DB_MIGRATION_PASSWORD`, with the same host, port, database,
+and SSL settings as the migration runner. It requires `ts-node` from the development
+dependencies. Keep the runtime `DB_USER` read-only; no additional grants are needed.
+
+Provisioning uses the shared `PasswordService` and stores only its encoded hash.
+Passwords must be non-empty and at most 1024 UTF-8 bytes; the Login DTO enforces
+the same size limit. Clear `AUTH_PROVISION_PASSWORD` from the shell environment
+after use. No plaintext or default passwords are stored in source or seed files;
+the login example above is a fictional placeholder, not a provisioned credential.
