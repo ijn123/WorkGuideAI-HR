@@ -7,6 +7,7 @@ import { EmployeesModule } from './employees/employees.module';
 import { HrModule } from './hr/hr.module';
 import { DocumentsModule } from './documents/documents.module';
 import { validateEnvironment } from './config/env.schema';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
     imports: [
@@ -19,6 +20,7 @@ import { validateEnvironment } from './config/env.schema';
         EmployeesModule,
         HrModule,
         DocumentsModule,
+        AuthModule,
     ],
     controllers: [AppController],
     providers: [],
