@@ -2,11 +2,16 @@ export const EMBEDDINGS = Symbol('EMBEDDINGS');
 
 export interface EmbeddingsInterface {
     /**
-     * Создаёт вектор для каждого переданного текста.
-     *
-     * Порядок векторов соответствует порядку текстов.
-     * Все векторы имеют одинаковую размерность.
-     * При ошибке генерации метод выбрасывает исключение.
+     * Generates one vector per document text.
+     * Output order matches input order.
+     * All vectors have the configured dimensionality.
      */
     embedDocuments(texts: string[]): Promise<number[][]>;
+
+    /**
+     * Generates a search query vector using the same model
+     * and dimensionality as document indexing.
+     */
+    embedQuery(text: string): Promise<number[]>;
+
 }

@@ -67,4 +67,36 @@ export class EmbeddingsService implements EmbeddingsInterface {
 
         return vectors;
     }
+    /**
+     * Embeds a search query using the configured model.
+     * Rejects empty input and invalid output vectors.
+     */
+    async embedQuery(text: string): Promise<number[]> {
+        const query = text.trim();
+
+        if (!query) {
+            throw new Error(
+                'Нельзя создать эмбеддинг для пустого вопроса.',
+            );
+        }
+
+        const vector = await this.model.embedQuery(query);
+
+        if (vector.length !== this.dimensions) {
+            throw new Error(
+                'Размерность эмбеддинга вопроса не совпадает с настройками.',
+            );
+        }
+
+        if (
+            !vector.every((value) => Number.isFinite(value)) ||
+            vector.every((value) => value === 0)
+        ) {
+            throw new Error(
+                'Модель вернула некорректный вектор вопроса.',
+            );
+        }
+
+        return vector;
+    }
 }

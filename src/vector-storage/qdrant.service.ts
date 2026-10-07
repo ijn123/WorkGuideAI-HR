@@ -5,9 +5,17 @@ import type {
     VectorizedChunk,
     VectorStorageInterface,
 } from './interfaces/vector-storage.interface';
+import type {
+    VectorSearchInterface,
+    VectorSearchInput,
+    RetrievedChunk,
+} from './interfaces/vector-search.interface';
+import { chunkPayloadSchema } from './schemas/chunk-payload.schema';
 
 @Injectable()
-export class QdrantService implements VectorStorageInterface {
+export class QdrantService
+    implements VectorStorageInterface, VectorSearchInterface
+{
     private readonly client: QdrantClient;
     private readonly collection: string;
     private readonly dimensions: number;
@@ -206,5 +214,95 @@ export class QdrantService implements VectorStorageInterface {
                 'Для удаления нужны documentId и generationId.',
             );
         }
+    }
+    /**
+     * Searches allowed document generations before top-k selection.
+     * Invalid payloads are excluded from the returned evidence.
+     */
+    async search(input: VectorSearchInput): Promise<RetrievedChunk[]> {
+        if (input.allowedDocuments.length === 0) {
+            return [];
+        }
+
+        if (
+            input.vector.length !== this.dimensions ||
+            !input.vector.every(Number.isFinite) ||
+            input.vector.every((value) => value === 0)
+        ) {
+            throw new Error('Некорректный вектор поискового запроса.');
+        }
+
+        if (
+            !Number.isInteger(input.limit) ||
+            input.limit < 1 ||
+            input.limit > 20 ||
+            !Number.isFinite(input.scoreThreshold) ||
+            input.scoreThreshold < -1 ||
+            input.scoreThreshold > 1
+        ) {
+            throw new Error('Некорректные параметры поиска.');
+        }
+
+        const result = await this.client.query(this.collection, {
+            query: input.vector,
+            limit: input.limit,
+            score_threshold: input.scoreThreshold,
+            with_payload: true,
+            with_vector: false,
+            filter: {
+                should: input.allowedDocuments.map((document) => ({
+                    must: [
+                        {
+                            key: 'documentId',
+                            match: { value: document.documentId },
+                        },
+                        {
+                            key: 'generationId',
+                            match: { value: document.generationId },
+                        },
+                    ],
+                })),
+            },
+        });
+
+        const chunks: RetrievedChunk[] = [];
+
+        for (const point of result.points) {
+            const parsed = chunkPayloadSchema.safeParse(point.payload);
+
+            if (!parsed.success) {
+                continue;
+            }
+
+            const payload = parsed.data;
+
+            const allowed = input.allowedDocuments.some(
+                (document) =>
+                    document.documentId === payload.documentId &&
+                    document.generationId === payload.generationId,
+            );
+
+            if (
+                !allowed ||
+                String(point.id) !== payload.chunkId ||
+                !Number.isFinite(point.score) ||
+                point.score < input.scoreThreshold
+            ) {
+                continue;
+            }
+
+            chunks.push({
+                id: payload.chunkId,
+                documentId: payload.documentId,
+                generationId: payload.generationId,
+                title: payload.title,
+                text: payload.text,
+                pageNumber: payload.pageNumber,
+                chunkIndex: payload.chunkIndex,
+                score: point.score,
+            });
+        }
+
+        return chunks.sort((a, b) => b.score - a.score);
     }
 }

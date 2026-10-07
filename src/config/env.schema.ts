@@ -23,6 +23,25 @@ const databaseEnvSchema = z.object({
         .min(1)
         .max(50)
         .default(10),
+    RETRIEVAL_TOP_K: z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(20)
+        .default(5),
+
+    RETRIEVAL_SCORE_THRESHOLD: z.coerce
+        .number()
+        .min(-1)
+        .max(1)
+        .default(0.65),
+
+    RAG_MAX_CONTEXT_CHARS: z.coerce
+        .number()
+        .int()
+        .min(1000)
+        .max(50000)
+        .default(12000),
 }).refine(
     (config) =>
         config.INGESTION_CHUNK_OVERLAP < config.INGESTION_CHUNK_SIZE,
