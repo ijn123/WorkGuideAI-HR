@@ -11,6 +11,8 @@
     "@nestjs/core": "^12.0.3",
     "@nestjs/jwt": "^12.0.2",
     "@nestjs/platform-express": "^12.0.3",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
     "pg": "^8.23.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
@@ -31,6 +33,7 @@
     "auth:provision": "node --env-file-if-exists=.env --require ts-node/register scripts/provision-password.mjs",
     "test:auth": "npm run build && node --test test/auth/auth.unit.test.cjs test/auth/auth.http.test.cjs",
     "test:database": "npm run build && node --test test/database/database.unit.test.cjs",
-    "test": "npm run test:auth && npm run test:database"
+    "test:validation": "npm run build && node --test test/validation/request-dto.unit.test.cjs",
+    "test": "npm run test:validation && npm run test:auth && npm run test:database"
   }
 }
