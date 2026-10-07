@@ -11,7 +11,9 @@ const { AppController } = require('../../dist/app.controller');
 const { EmployeesModule } = require('../../dist/employees/employees.module');
 const { EmployeesService } = require('../../dist/employees/employees.service');
 const { HrModule } = require('../../dist/hr/hr.module');
-const { HrService } = require('../../dist/hr/hr.service');
+const { LeaveBalancesService } = require('../../dist/hr/leave-balances.service');
+const { HrRequestsService } = require('../../dist/hr/hr-requests.service');
+const { OnboardingTasksService } = require('../../dist/hr/onboarding-tasks.service');
 const { ChatModule } = require('../../dist/chat/chat.module');
 const { GeminiService } = require('../../dist/ai/gemini.service');
 const { DatabaseService } = require('../../dist/database/database.service');
@@ -56,16 +58,22 @@ describe('Authentication endpoint integration', { concurrency: false }, () => {
             if (serviceError) throw serviceError;
             return 'Fictional offline answer';
         });
-        for (const [method, name] of [
-            ['getLeaveBalance', 'leave'],
-            ['findRequestsByEmployeeId', 'requests'],
-            ['findOnboardingTasksByEmployeeId', 'onboarding'],
+        for (const [Service, method, name] of [
+            [LeaveBalancesService, 'getLeaveBalance', 'leave'],
+            [HrRequestsService, 'findRequestsByEmployeeId', 'requests'],
+            [OnboardingTasksService, 'findOnboardingTasksByEmployeeId', 'onboarding'],
         ]) {
-            mock.method(HrService.prototype, method, async (...args) => {
+            mock.method(Service.prototype, method, async (...args) => {
                 calls.push([name, ...args]);
                 if (serviceError) throw serviceError;
                 return name === 'leave'
-                    ? { employeeId: args[0], year: args[1], entitledDays: 25, usedDays: 5, remainingDays: 20 }
+                    ? {
+                        employeeId: args[0],
+                        year: args[1],
+                        entitledDays: 25,
+                        usedDays: 5,
+                        remainingDays: 20,
+                    }
                     : [];
             });
         }

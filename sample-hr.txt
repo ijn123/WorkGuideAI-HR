@@ -1,0 +1,8 @@
+Demo vacation policy for Example Company.
+
+Employees submit vacation requests through the HR portal.
+Each request must include a start date and an end date.
+The manager reviews the request and informs the employee.
+Employees can contact HR with questions about the process.
+
+This fictional document is used only for indexing tests.

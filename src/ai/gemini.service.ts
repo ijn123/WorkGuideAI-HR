@@ -6,9 +6,12 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { ChatGoogle } from '@langchain/google';
 import { StringOutputParser } from '@langchain/core/output_parsers';
+import type {
+    AiChatInterface,
+} from './interfaces/ai-chat.interface';
 
 @Injectable()
-export class GeminiService {
+export class GeminiService implements AiChatInterface {
     private readonly logger = new Logger(GeminiService.name);
     private readonly model: ChatGoogle;
 
@@ -33,6 +36,18 @@ export class GeminiService {
             maxRetries: 1,
         });
     }
+    /**
+     * Получает текстовый ответ от Gemini.
+     *
+     * @param question - Вопрос для языковой модели.
+     * @returns Непустой текст ответа.
+     * @throws {@link ServiceUnavailableException}
+     * Если обращение к модели завершилось ошибкой
+     * или модель вернула пустой ответ.
+     *
+     * @remarks
+     * Поиск по документам и HR-данным здесь не выполняется.
+     */
 
     async ask(question: string): Promise<string> {
         try {

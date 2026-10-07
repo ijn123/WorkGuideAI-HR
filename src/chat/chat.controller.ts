@@ -16,15 +16,10 @@ export class ChatController {
     constructor(private readonly chatService: ChatService) {}
 
     @Post()
-    async ask(
+    ask(
         @Body(new ZodValidationPipe(askQuestionSchema))
         body: AskQuestionDto,
     ): Promise<AskQuestionResponseDto> {
-        const result = await this.chatService.ask(body.question);
-
-        return {
-            question: result.question,
-            answer: result.answer,
-        };
+        return this.chatService.ask(body.question);
     }
 }

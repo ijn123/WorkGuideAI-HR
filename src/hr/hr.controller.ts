@@ -11,21 +11,22 @@ import {
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user';
-import { HrService } from './hr.service';
-import type {
-    HrRequestResponseDto,
-} from './dto/responses/hr-request-response.dto';
-import type {
-    LeaveBalanceResponseDto,
-} from './dto/responses/leave-balance-response.dto';
-import type {
-    OnboardingTaskResponseDto,
-} from './dto/responses/onboarding-task-response.dto';
+import { OnboardingTasksService } from './onboarding-tasks.service';
+import {HrRequestsService} from "./hr-requests.service";
+import {LeaveBalancesService} from "./leave-balances.service";
+import {LeaveBalanceResponseDto} from "./dto/responses/leave-balance-response.dto";
+import {HrRequestResponseDto} from "./dto/responses/hr-request-response.dto";
+import {OnboardingTaskResponseDto} from "./dto/responses/onboarding-task-response.dto";
+
 
 @Controller('hr')
 @UseGuards(AuthGuard)
 export class HrController {
-    constructor(private readonly hrService: HrService) {}
+    constructor(
+        private readonly hrRequestsService: HrRequestsService,
+        private readonly leaveBalancesService: LeaveBalancesService,
+        private readonly onboardingTasksService: OnboardingTasksService,
+    ) {}
 
     @Get('employees/:employeeId/leave-balance/:year')
     getLeaveBalance(
@@ -40,9 +41,12 @@ export class HrController {
                 'Год должен быть в диапазоне от 2000 до 2100.',
             );
         }
-
         this.requireOwnership(employeeId, currentUser);
-        return this.hrService.getLeaveBalance(currentUser.employeeId, year);
+
+        return this.leaveBalancesService.getLeaveBalance(
+            currentUser.employeeId,
+            year,
+        );
     }
 
     @Get('employees/:employeeId/requests')
@@ -52,7 +56,10 @@ export class HrController {
         @CurrentUser() currentUser: AuthenticatedUser,
     ): Promise<HrRequestResponseDto[]> {
         this.requireOwnership(employeeId, currentUser);
-        return this.hrService.findRequestsByEmployeeId(currentUser.employeeId);
+
+        return this.hrRequestsService.findRequestsByEmployeeId(
+            currentUser.employeeId,
+        );
     }
 
     @Get('employees/:employeeId/onboarding-tasks')
@@ -62,7 +69,8 @@ export class HrController {
         @CurrentUser() currentUser: AuthenticatedUser,
     ): Promise<OnboardingTaskResponseDto[]> {
         this.requireOwnership(employeeId, currentUser);
-        return this.hrService.findOnboardingTasksByEmployeeId(
+
+        return this.onboardingTasksService.findOnboardingTasksByEmployeeId(
             currentUser.employeeId,
         );
     }

@@ -168,33 +168,73 @@ GRANT SELECT ON TABLE
 TO workguide_reader;
 ```
 
-При первоначальной настройке задайте пароль интерактивно:
+### Пользователь приложения для индексации
 
-```text
-\password workguide_reader
+После выполнения миграций, включая `010_add_document_indexing.sql`,
+создайте пользователя приложения, если он ещё не существует:
+
+```sql
+CREATE ROLE workguide_app
+    LOGIN
+    INHERIT
+    NOSUPERUSER
+    NOCREATEDB
+    NOCREATEROLE
+    NOREPLICATION
+    NOBYPASSRLS;
 ```
 
-Для выхода:
+Следующие команды выполняются в той же консоли PostgreSQL
+под администратором:
+
+```sql
+GRANT workguide_reader TO workguide_app;
+
+GRANT UPDATE (
+    indexing_status,
+    indexing_generation,
+    indexed_at,
+    indexing_error
+) ON public.documents TO workguide_app;
+```
+
+`workguide_app` наследует права чтения от `workguide_reader`.
+Дополнительно ему разрешено обновлять только четыре поля индексации.
+Изменение HR-данных, названия документа, разрешённых ролей
+и статуса публикации не разрешено.
+
+Задайте пароль нового пользователя интерактивно:
+
+```text
+\password workguide_app
+```
+
+Введите пароль дважды, затем выйдите:
 
 ```text
 \q
 ```
 
-Укажите в рабочем .env:
+В локальном `.env` укажите:
 
 ```dotenv
-DB_USER=workguide_reader
-DB_PASSWORD=установленный_пароль
+DB_USER=workguide_app
+DB_PASSWORD=your_application_password
 ```
 
-Пароль существующей роли без необходимости не меняйте:
-это повлияет на все подключения, использующие эту роль.
+Замените `your_application_password` установленным паролем.
+Настоящий пароль не добавляйте в `.env.example` или Git.
+
+При повторной настройке существующие роли создавать заново
+и менять их пароли не требуется. Права выдаются отдельно
+для каждой базы.
 
 Миграции выполняются под отдельным пользователем,
-указанным в DB_MIGRATION_USER.
+указанным в `DB_MIGRATION_USER`.
 
 При добавлении новых таблиц права чтения выдаются явно.
-Доступ к schema_migrations приложению не требуется.
+Доступ к `schema_migrations` приложению не требуется.
+
 
 ### 4. Запустить приложение
 
@@ -212,7 +252,7 @@ npm run start:dev
 - Адрес для NestJS: `127.0.0.1`
 - Порт на компьютере: `5433`
 - База: `workguide_ai`
-- Пользователь: `workguide_reader`
+- Пользователь: `workguide_app`
 - Администратор локальной базы и пользователь миграций: `workguide`
 
 Каждый участник запускает отдельную локальную базу.
@@ -241,7 +281,7 @@ docker compose stop postgres
 ### Подключение
 
 Приложение использует DB_USER и DB_PASSWORD.
-Для него предназначен пользователь workguide_reader.
+Для него предназначен пользователь workguide_app.
 
 Скрипт миграций использует отдельные настройки:
 DB_MIGRATION_USER и DB_MIGRATION_PASSWORD.
@@ -309,7 +349,9 @@ foreach ($file in $seedFiles) {
 Файл 005 заполняет отсутствующую дату завершения одной тестовой задачи.
 
 В каждой из четырёх HR-таблиц создаются три записи.
-Таблица documents пока остаётся пустой.
+Стандартные seed-файлы не заполняют таблицу documents.
+Учебный документ для проверки индексации создаётся отдельно
+по инструкции ниже.
 
 Для старой базы с завершённой тестовой задачей без completed_at:
 после миграции 007 выполните seed 005, затем миграцию 008.
@@ -401,10 +443,276 @@ npm run auth:provision
 The command loads existing database settings from `.env` when present and uses
 `DB_MIGRATION_USER` / `DB_MIGRATION_PASSWORD`, with the same host, port, database,
 and SSL settings as the migration runner. It requires `ts-node` from the development
-dependencies. Keep the runtime `DB_USER` read-only; no additional grants are needed.
+dependencies. The runtime user `workguide_app` inherits read access and can update
+only the four document indexing fields described above.
+Authentication provisioning uses migration credentials;
+do not grant credential-management permissions to the runtime user.
 
 Provisioning uses the shared `PasswordService` and stores only its encoded hash.
 Passwords must be non-empty and at most 1024 UTF-8 bytes; the Login DTO enforces
 the same size limit. Clear `AUTH_PROVISION_PASSWORD` from the shell environment
 after use. No plaintext or default passwords are stored in source or seed files;
 the login example above is a fictional placeholder, not a provisioned credential.
+
+## Слой сервисов
+
+Контроллеры передают запросы сервисам и возвращают DTO.
+
+Сервисы:
+- EmployeesService — получение списка сотрудников.
+- HrRequestsService — получение HR-заявок сотрудника.
+- LeaveBalancesService — получение баланса отпуска;
+  при отсутствии записи возвращается 404.
+- OnboardingTasksService — получение задач адаптации.
+- DocumentsService — получение документов с учётом
+  публикации и разрешённых ролей.
+- ChatService — передача вопроса AI-сервису и формирование ответа.
+
+Сервисы работают с репозиториями через интерфейсы
+и токены внедрения зависимостей NestJS.
+
+HrRepository реализует три отдельных контракта:
+для заявок, балансов отпуска и задач адаптации.
+Все три токена связаны с одним экземпляром через useExisting.
+
+ChatService использует AiChatInterface через токен AI_CHAT.
+Текущая реализация — GeminiService.
+
+DocumentsService получает роль из проверенного контекста
+вызывающего кода. HTTP-маршруты документов пока не подключены.
+Список доступных документов фильтруется после лимита репозитория
+и не является полным каталогом.
+
+Авторизация HR-маршрутов и RAG-поиск пока не реализованы.
+Текущий ответ модели не основан на поиске по документам или HR-базе.
+
+В рамках этой задачи новая валидация запросов,
+логирование и тесты не добавлялись.
+
+## Индексация документов
+
+Поддерживаются PDF с текстовым слоем, DOCX и TXT в UTF-8.
+Распознавание сканов (OCR) не реализовано.
+
+Текст разбивается на фрагменты. Размер и перекрытие задаются
+в символах Unicode, а не в токенах.
+
+Для каждого фрагмента сохраняются:
+- идентификатор документа;
+- идентификаторы фрагмента и генерации индексации;
+- название документа и текст;
+- порядковый номер фрагмента;
+- номер страницы PDF, начиная с 1; для DOCX и TXT — null.
+
+### Настройки
+
+В `.env` необходимо указать:
+
+```dotenv
+GEMINI_EMBEDDING_MODEL=gemini-embedding-001
+GEMINI_EMBEDDING_DIMENSIONS=3072
+
+QDRANT_URL=http://127.0.0.1:6333
+QDRANT_COLLECTION=workguide_hr
+QDRANT_API_KEY=
+
+INGESTION_CHUNK_SIZE=1000
+INGESTION_CHUNK_OVERLAP=200
+INGESTION_MAX_FILE_SIZE_MB=10
+```
+
+Для Gemini используется существующий `GEMINI_API_KEY`.
+В локальной конфигурации Qdrant ключ не требуется.
+
+### Запуск Qdrant
+
+```powershell
+docker compose up -d qdrant
+```
+
+Данные сохраняются в Docker-томе `qdrant_data`.
+
+Проверка коллекции:
+
+```powershell
+npx ts-node scripts/check-qdrant.ts
+```
+
+Отсутствующая коллекция создаётся с настроенной размерностью
+и метрикой Cosine. Несовместимая коллекция вызывает ошибку
+и автоматически не пересоздаётся.
+
+### Статусы и повторная индексация
+
+Статус индексации хранится отдельно от статуса публикации:
+
+- pending — индексация ещё не начата;
+- indexing — документ обрабатывается;
+- ready — текущая генерация успешно записана;
+- failed — обработка завершилась ошибкой.
+
+Повторная индексация записывает новую генерацию фрагментов
+и удаляет предыдущие. Статус ready устанавливается после
+завершения этих операций.
+
+Одновременная индексация одного документа блокируется
+атомарным обновлением записи PostgreSQL.
+
+При сбое процесса, очистки векторов или сохранения статуса
+документ может остаться в indexing. Автоматическое
+восстановление зависших операций пока не реализовано.
+
+При неудачной повторной индексации в Qdrant могут оставаться
+фрагменты прежней генерации. Их наличие не означает готовность
+документа к поиску.
+
+### Текущие ограничения
+
+Индексация проверяется локальными скриптами.
+Защищённый HTTP-маршрут загрузки ожидает интеграции
+авторизации и проверки ролей.
+
+Ответы на вопросы и маршрутизация запросов в эту задачу не входят.
+Будущий поиск должен проверять права доступа, статус публикации,
+статус ready и соответствие текущей генерации в PostgreSQL.
+
+### Проверка полного процесса индексации
+
+Предварительно выполните миграции, настройте пользователя
+`workguide_app` и запустите PostgreSQL и Qdrant.
+
+Создайте метаданные вымышленного учебного документа:
+
+```powershell
+docker compose exec postgres psql -U workguide -d workguide_ai -v ON_ERROR_STOP=1 -c "INSERT INTO documents (id, title, status, allowed_roles) VALUES ('50000000-0000-4000-8000-000000000027', 'Demo vacation policy', 'draft', ARRAY['employee', 'hr', 'admin']) ON CONFLICT (id) DO NOTHING;"
+```
+
+Из корня проекта запустите:
+
+```powershell
+npx ts-node scripts/check-ingestion.ts
+```
+
+Скрипт читает `sample-hr.txt`, отправляет текст в Gemini,
+записывает векторы в Qdrant и обновляет статус индексации
+в PostgreSQL. Требуется действующий `GEMINI_API_KEY`.
+
+Проверка результата:
+
+```powershell
+docker compose exec postgres psql -U workguide -d workguide_ai -c "SELECT status, indexing_status, indexing_generation, indexed_at, indexing_error FROM documents WHERE id = '50000000-0000-4000-8000-000000000027';"
+```
+
+Ожидается:
+- публикация — draft;
+- индексация — ready;
+- идентификатор генерации и дата индексации заполнены;
+- ошибка отсутствует.
+
+Повторный запуск создаёт новую генерацию и удаляет предыдущую.
+
+Для отдельной проверки записи, отсутствия дублей и удаления
+векторов без обращения к Gemini:
+
+```powershell
+npx ts-node scripts/check-vector-storage.ts
+```
+
+Этот скрипт использует искусственные векторы и удаляет
+свои проверочные точки после выполнения.
+
+## Поиск документов и RAG-ответы
+
+Вопрос преобразуется в эмбеддинг с той же моделью и размерностью,
+которые используются при индексации документов.
+
+До поиска в Qdrant PostgreSQL определяет доступные документы:
+- status = published;
+- indexing_status = ready;
+- роль пользователя входит в allowed_roles;
+- указана текущая генерация индексации.
+
+Qdrant фильтрует разрешённые пары documentId + generationId
+до выбора лучших результатов.
+
+Перед генерацией повторно проверяются доступ и генерация.
+Размер передаваемых материалов ограничен настройкой контекста.
+После генерации доступ проверяется ещё раз:
+при изменении состояния использованных документов ответ отбрасывается.
+
+Gemini получает инструкции отвечать только по материалам
+и рассматривать содержимое документов как справочные данные.
+Ответ проверяется через Zod. Метки источников должны существовать
+в переданных материалах и совпадать со ссылками в тексте.
+
+При отсутствии подтверждений возвращаются
+insufficientInformation: true и пустой массив sources.
+Сообщение об отсутствии информации пока фиксировано на русском.
+
+Проверка структуры и ссылок не гарантирует фактическую
+корректность каждого утверждения модели.
+
+HTTP-подключение ожидает интеграции авторизации.
+В локальных проверочных скриптах роль задана явно;
+это не заменяет проверку JWT и прав пользователя.
+
+### Настройки RAG
+
+В `.env`:
+
+```dotenv
+RETRIEVAL_TOP_K=5
+RETRIEVAL_SCORE_THRESHOLD=0.65
+RAG_MAX_CONTEXT_CHARS=12000
+```
+
+- RETRIEVAL_TOP_K — максимальное количество найденных фрагментов.
+- RETRIEVAL_SCORE_THRESHOLD — минимальная оценка сходства.
+  Это не вероятность правильного ответа; порог требует настройки
+  на на характерных примерах вопросов и документов.
+- RAG_MAX_CONTEXT_CHARS — максимальное число символов Unicode
+  в JSON-массиве материалов, включая метаданные.
+  Системная инструкция и вопрос в этот лимит не входят.
+
+### Локальная проверка
+
+Предварительно настройте `.env`, запустите PostgreSQL и Qdrant
+и проиндексируйте `sample-hr.txt` по инструкции выше.
+
+Для положительной проверки опубликуйте учебный документ
+и разрешите доступ роли employee:
+
+```powershell
+docker compose exec postgres psql -U workguide -d workguide_ai -c "UPDATE documents SET status = 'published', allowed_roles = ARRAY['employee', 'hr', 'admin'] WHERE id = '50000000-0000-4000-8000-000000000027';"
+```
+
+Проверка поиска фрагментов:
+
+```powershell
+npx ts-node scripts/check-retrieval.ts
+```
+
+Полный ответ с источниками:
+
+```powershell
+npx ts-node scripts/check-rag.ts "Как сотруднику подать заявку на отпуск?"
+```
+
+Вопрос о сведениях, отсутствующих в учебном документе:
+
+```powershell
+npx ts-node scripts/check-rag.ts "How many paid vacation days per year does Example Company provide?"
+```
+
+Проверка обработки посторонней инструкции внутри материала:
+
+```powershell
+npx ts-node scripts/check-grounded-answer.ts
+```
+
+Проверочные скрипты используют Gemini API.
+Один успешный пример не гарантирует устойчивость ко всем
+попыткам изменить поведение модели.
+
+Структурированные запросы к HR-данным и маршрутизация
+вопросов в реализацию этой задачи не входят.
