@@ -1,15 +1,16 @@
 import {
     BadRequestException,
     Controller,
+    ForbiddenException,
     Get,
     Param,
     ParseIntPipe,
     ParseUUIDPipe,
     UseGuards,
 } from '@nestjs/common';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { EmployeeRole } from '../employees/employee.entity';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthGuard } from '../auth/guards/auth.guard';
+import type { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { HrService } from './hr.service';
 import type {
     HrRequestResponseDto,
@@ -22,8 +23,7 @@ import type {
 } from './dto/responses/onboarding-task-response.dto';
 
 @Controller('hr')
-@UseGuards(RolesGuard)
-@Roles(EmployeeRole.HR, EmployeeRole.ADMIN)
+@UseGuards(AuthGuard)
 export class HrController {
     constructor(private readonly hrService: HrService) {}
 
@@ -33,6 +33,7 @@ export class HrController {
         employeeId: string,
         @Param('year', ParseIntPipe)
         year: number,
+        @CurrentUser() currentUser: AuthenticatedUser,
     ): Promise<LeaveBalanceResponseDto> {
         if (year < 2000 || year > 2100) {
             throw new BadRequestException(
@@ -40,24 +41,38 @@ export class HrController {
             );
         }
 
-        return this.hrService.getLeaveBalance(employeeId, year);
+        this.requireOwnership(employeeId, currentUser);
+        return this.hrService.getLeaveBalance(currentUser.employeeId, year);
     }
 
     @Get('employees/:employeeId/requests')
     findRequestsByEmployeeId(
         @Param('employeeId', new ParseUUIDPipe({ version: '4' }))
         employeeId: string,
+        @CurrentUser() currentUser: AuthenticatedUser,
     ): Promise<HrRequestResponseDto[]> {
-        return this.hrService.findRequestsByEmployeeId(employeeId);
+        this.requireOwnership(employeeId, currentUser);
+        return this.hrService.findRequestsByEmployeeId(currentUser.employeeId);
     }
 
     @Get('employees/:employeeId/onboarding-tasks')
     findOnboardingTasksByEmployeeId(
         @Param('employeeId', new ParseUUIDPipe({ version: '4' }))
         employeeId: string,
+        @CurrentUser() currentUser: AuthenticatedUser,
     ): Promise<OnboardingTaskResponseDto[]> {
+        this.requireOwnership(employeeId, currentUser);
         return this.hrService.findOnboardingTasksByEmployeeId(
-            employeeId,
+            currentUser.employeeId,
         );
+    }
+
+    private requireOwnership(
+        employeeId: string,
+        currentUser: AuthenticatedUser,
+    ): void {
+        if (employeeId.toLowerCase() !== currentUser.employeeId.toLowerCase()) {
+            throw new ForbiddenException();
+        }
     }
 }

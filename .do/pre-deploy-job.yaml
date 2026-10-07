@@ -1,0 +1,30 @@
+# Fragment for the existing work-guide-hr-app App Spec, not a standalone spec.
+# Merge jobs into the current spec, preserving all existing app configuration.
+# Empty credentials must be set on this job in DO before deploying.
+jobs:
+  - name: db-migrate
+    kind: PRE_DEPLOY
+    github:
+      repo: ijn123/WorkGuideAI-HR
+      branch: master
+      deploy_on_push: true
+    source_dir: /
+    dockerfile_path: Dockerfile
+    run_command: npm run db:migrate
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    # DB_HOST, DB_PORT, DB_NAME and DB_SSL come from app-level RUN_TIME envs.
+    envs:
+      - key: DB_MIGRATION_USER
+        scope: RUN_TIME
+        type: GENERAL
+        value: ""
+      - key: DB_MIGRATION_PASSWORD
+        scope: RUN_TIME
+        type: SECRET
+        value: ""
+      # The attached db-wghr cluster is PostgreSQL Standard Edition.
+      - key: DB_SSL_CA_CERT
+        scope: RUN_TIME
+        type: GENERAL
+        value: ${db-wghr.CA_CERT}
