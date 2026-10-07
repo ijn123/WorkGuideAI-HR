@@ -29,6 +29,8 @@
     "start:dev": "nest start --watch",
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
     "auth:provision": "node --env-file-if-exists=.env --require ts-node/register scripts/provision-password.mjs",
-    "test:auth": "npm run build && node --test test/auth/auth.unit.test.cjs test/auth/auth.http.test.cjs"
+    "test:auth": "npm run build && node --test test/auth/auth.unit.test.cjs test/auth/auth.http.test.cjs",
+    "test:database": "npm run build && node --test test/database/database.unit.test.cjs",
+    "test": "npm run test:auth && npm run test:database"
   }
 }

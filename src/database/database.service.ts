@@ -3,6 +3,7 @@ import {
     Logger,
     OnModuleDestroy,
     OnModuleInit,
+    ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Pool, type QueryResultRow } from 'pg';
@@ -28,10 +29,10 @@ export class DatabaseService
 
             ...(useSsl
                 ? {
-                      ssl: {
-                          rejectUnauthorized: false,
-                      },
-                  }
+                    ssl: {
+                        rejectUnauthorized: false,
+                    },
+                }
                 : {}),
         };
 
@@ -55,9 +56,20 @@ export class DatabaseService
         sql: string,
         params: unknown[] = [],
     ): Promise<T[]> {
-        const result = await this.pool.query<T>(sql, params);
+        try {
+            const result = await this.pool.query<T>(sql, params);
 
-        return result.rows;
+            return result.rows;
+        } catch (error: unknown) {
+            this.logger.error(
+                'Ошибка выполнения запроса к PostgreSQL.',
+                error instanceof Error ? error.stack : undefined,
+            );
+
+            throw new ServiceUnavailableException(
+                'Сервис базы данных временно недоступен. Попробуйте позже.',
+            );
+        }
     }
 
     async onModuleDestroy(): Promise<void> {
