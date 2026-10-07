@@ -177,7 +177,7 @@ describe('AuthService login and JWT generation', () => {
 
 describe('AuthGuard', () => {
     const jwt = fixtures.jwtService();
-    function setup(employee = { id: fixtures.EMPLOYEE_ID, employmentStatus: 'active' }) {
+    function setup(employee = { id: fixtures.EMPLOYEE_ID, employmentStatus: 'active', role: 'employee' }) {
         const calls = [];
         const repository = { async findAuthenticatedEmployeeById(id) { calls.push(id); return employee; } };
         return { guard: new AuthGuard(jwt, fixtures.config(), repository), calls };
@@ -232,11 +232,11 @@ describe('AuthGuard', () => {
         assert.deepEqual(calls, []);
     });
 
-    it('attaches only verified employeeId and ignores client identity and preexisting user', async () => {
+    it('attaches verified employeeId and repository role, ignoring client identity and preexisting user', async () => {
         const { guard, calls } = setup();
         const incoming = { ...request(), user: { employeeId: fixtures.OTHER_EMPLOYEE_ID }, body: { employeeId: fixtures.OTHER_EMPLOYEE_ID }, query: { employeeId: fixtures.OTHER_EMPLOYEE_ID }, params: { employeeId: fixtures.OTHER_EMPLOYEE_ID } };
         assert.equal(await guard.canActivate(fixtures.context(incoming)), true);
-        assert.deepEqual(incoming.user, { employeeId: fixtures.EMPLOYEE_ID });
+        assert.deepEqual(incoming.user, { employeeId: fixtures.EMPLOYEE_ID, role: 'employee' });
         assert.deepEqual(calls, [fixtures.EMPLOYEE_ID]);
     });
 

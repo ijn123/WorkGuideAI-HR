@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
-import type { EmploymentStatus } from '../employees/employee.entity';
+import type {
+    EmployeeRole,
+    EmploymentStatus,
+} from '../employees/employee.entity';
 
 export interface AuthenticatedEmployee {
     id: string;
+    role: EmployeeRole;
     employmentStatus: EmploymentStatus;
 }
 
@@ -13,6 +17,7 @@ export interface EmployeeCredentials extends AuthenticatedEmployee {
 
 interface AuthenticatedEmployeeRow {
     id: string;
+    role: EmployeeRole;
     employment_status: EmploymentStatus;
 }
 
@@ -29,7 +34,7 @@ export class AuthRepository {
     ): Promise<EmployeeCredentials | null> {
         const rows = await this.database.query<EmployeeCredentialsRow>(
             `
-                SELECT id, password_hash, employment_status
+                SELECT id, role, password_hash, employment_status
                 FROM employees
                 WHERE lower(work_email) = $1
             `,
@@ -40,10 +45,11 @@ export class AuthRepository {
 
         return row
             ? {
-                  id: row.id,
-                  passwordHash: row.password_hash,
-                  employmentStatus: row.employment_status,
-              }
+                id: row.id,
+                role: row.role,
+                passwordHash: row.password_hash,
+                employmentStatus: row.employment_status,
+            }
             : null;
     }
 
@@ -52,7 +58,7 @@ export class AuthRepository {
     ): Promise<AuthenticatedEmployee | null> {
         const rows = await this.database.query<AuthenticatedEmployeeRow>(
             `
-                SELECT id, employment_status
+                SELECT id, role, employment_status
                 FROM employees
                 WHERE id = $1
             `,
@@ -63,9 +69,10 @@ export class AuthRepository {
 
         return row
             ? {
-                  id: row.id,
-                  employmentStatus: row.employment_status,
-              }
+                id: row.id,
+                role: row.role,
+                employmentStatus: row.employment_status,
+            }
             : null;
     }
 }

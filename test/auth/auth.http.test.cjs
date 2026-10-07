@@ -36,7 +36,7 @@ describe('Authentication endpoint integration', { concurrency: false }, () => {
             if (databaseError) throw databaseError;
             if (sql.includes('lower(work_email)')) {
                 return params[0] === fixtures.EMAIL
-                    ? [{ id: fixtures.EMPLOYEE_ID, password_hash: hash, employment_status: 'active' }]
+                    ? [{ id: fixtures.EMPLOYEE_ID, role: employeeRole, password_hash: hash, employment_status: employeeStatus }]
                     : [];
             }
             if (sql.includes('WHERE id = $1')) {
@@ -128,7 +128,7 @@ describe('Authentication endpoint integration', { concurrency: false }, () => {
         assert.equal(verified.header.alg, 'HS256');
         assert.equal(verified.payload.exp - verified.payload.iat, fixtures.TTL);
         assert.deepEqual(Object.keys(verified.payload).sort(), ['exp', 'iat', 'sub']);
-        assert.equal((await http('GET', '/employees', login.body.accessToken)).status, 200);
+        assert.equal((await http('GET', '/employees', login.body.accessToken)).status, 403);
         assert.equal((await http('POST', '/auth/login', null, {})).status, 400);
         assert.equal((await http('POST', '/auth/login', null, { workEmail: 'unknown@example.invalid', password: fixtures.PASSWORD })).status, 401);
     });
@@ -142,6 +142,7 @@ describe('Authentication endpoint integration', { concurrency: false }, () => {
                 assert.equal((await http(method, path, jwt, body)).status, 401);
                 assert.equal(calls.length, 0);
             }
+            if (path === '/employees') employeeRole = 'hr';
             const result = await http(method, path, token, body);
             assert.equal(result.status, method === 'POST' ? 201 : 200);
             assert.equal(calls[0][0], handler);
