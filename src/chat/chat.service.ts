@@ -1,8 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
+import type {
+    AuthenticatedUser,
+} from '../auth/types/authenticated-user';
 import {
-    AI_CHAT,
-    type AiChatInterface,
-} from '../ai/interfaces/ai-chat.interface';
+    QUESTION_ORCHESTRATOR,
+    type QuestionOrchestratorInterface,
+} from './interfaces/question-orchestrator.interface';
 import type {
     AskQuestionResponseDto,
 } from './dto/responses/ask-question-response.dto';
@@ -10,26 +13,29 @@ import type {
 @Injectable()
 export class ChatService {
     constructor(
-        @Inject(AI_CHAT)
-        private readonly aiChat: AiChatInterface,
+        @Inject(QUESTION_ORCHESTRATOR)
+        private readonly orchestrator: QuestionOrchestratorInterface,
     ) {}
 
     /**
-     * Передаёт вопрос AI-сервису и формирует ответ приложения.
+     * Processes a question using the authenticated user's context.
      *
-     * @param question - Вопрос пользователя.
-     * @returns Исходный вопрос и ответ модели.
+     * @param question - The validated user question.
+     * @param user - Identity and role from verified authentication.
+     * @returns The question and routing result with sources and statuses.
      *
      * @remarks
-     * Поиск по документам и HR-базе пока не выполняется.
-     * Ошибки AI-сервиса передаются вызывающему коду.
+     * Infrastructure and unexpected errors propagate to the caller.
      */
-    async ask(question: string): Promise<AskQuestionResponseDto> {
-        const answer = await this.aiChat.ask(question);
+    async ask(
+        question: string,
+        user: AuthenticatedUser,
+    ): Promise<AskQuestionResponseDto> {
+        const result = await this.orchestrator.ask(question, user);
 
         return {
             question,
-            answer,
+            result,
         };
     }
 }

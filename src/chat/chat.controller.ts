@@ -1,5 +1,9 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '../auth/guards/auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type {
+    AuthenticatedUser,
+} from '../auth/types/authenticated-user';
 import { ChatService } from './chat.service';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import {
@@ -19,7 +23,9 @@ export class ChatController {
     ask(
         @Body(new ZodValidationPipe(askQuestionSchema))
         body: AskQuestionDto,
+        @CurrentUser()
+        currentUser: AuthenticatedUser,
     ): Promise<AskQuestionResponseDto> {
-        return this.chatService.ask(body.question);
+        return this.chatService.ask(body.question, currentUser);
     }
 }

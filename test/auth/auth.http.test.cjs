@@ -15,7 +15,7 @@ const { LeaveBalancesService } = require('../../dist/hr/leave-balances.service')
 const { HrRequestsService } = require('../../dist/hr/hr-requests.service');
 const { OnboardingTasksService } = require('../../dist/hr/onboarding-tasks.service');
 const { ChatModule } = require('../../dist/chat/chat.module');
-const { GeminiService } = require('../../dist/ai/gemini.service');
+const { QuestionOrchestratorService } = require('../../dist/chat/question-orchestrator.service');
 const { DatabaseService } = require('../../dist/database/database.service');
 
 describe('Authentication endpoint integration', { concurrency: false }, () => {
@@ -53,10 +53,13 @@ describe('Authentication endpoint integration', { concurrency: false }, () => {
             if (serviceError) throw serviceError;
             return [];
         });
-        mock.method(GeminiService.prototype, 'ask', async question => {
-            calls.push(['chat', question]);
+        mock.method(QuestionOrchestratorService.prototype, 'ask', async (question, user) => {
+            calls.push(['chat', question, user]);
             if (serviceError) throw serviceError;
-            return 'Fictional offline answer';
+            return {
+                route: 'CLARIFICATION',
+                question: 'Уточните ваш вопрос.',
+            };
         });
         for (const [Service, method, name] of [
             [LeaveBalancesService, 'getLeaveBalance', 'leave'],
@@ -154,9 +157,22 @@ describe('Authentication endpoint integration', { concurrency: false }, () => {
             const result = await http(method, path, token, body);
             assert.equal(result.status, method === 'POST' ? 201 : 200);
             assert.equal(calls[0][0], handler);
-            assert.deepEqual(result.body, method === 'POST'
-                ? { question: 'Test question', answer: 'Fictional offline answer' }
-                : []);
+            if (path === '/chat') {
+                assert.deepEqual(calls, [
+                    ['chat', 'Test question', {
+                        employeeId: fixtures.EMPLOYEE_ID,
+                        role: 'employee',
+                    }],
+                ]);
+            }
+            mock.method(QuestionOrchestratorService.prototype, 'ask', async (question, user) => {
+                calls.push(['chat', question, user]);
+                if (serviceError) throw serviceError;
+                return {
+                    route: 'CLARIFICATION',
+                    question: 'Уточните ваш вопрос.',
+                };
+            });
         });
     }
 
