@@ -1,5 +1,87 @@
 # Database migrations before DigitalOcean deployment
 
+## Explicit demo employee administration (issue #39)
+
+`npm run demo:create-employees` runs `scripts/create-demo-employees.mjs`.
+It creates only these approved fictional identities, reusing the UUIDs and
+profile fields from `src/database/seeds/001_seed_employees.sql`:
+
+| Name | UUID | Work email | Department | Role | Employment status |
+| --- | --- | --- | --- | --- | --- |
+| Max Weber | 10000000-0000-4000-8000-000000000002 | max.weber@example.com | IT | employee | active |
+| Anna Becker | 10000000-0000-4000-8000-000000000001 | anna.becker@example.com | HR | hr | active |
+
+The script does not load seeds, create other employees, modify migrations,
+or provision passwords. Newly inserted rows have `password_hash = NULL`.
+Unlike this administrative script, the existing employee seed omits role
+and therefore creates Anna with the default `employee` role. An existing
+Anna with that role is a conflict; this script never promotes existing users.
+
+Required connection variables are `DB_HOST`, `DB_PORT`, `DB_NAME`,
+`DB_MIGRATION_USER`, and `DB_MIGRATION_PASSWORD`. There is no fallback to
+runtime `DB_USER` or `DB_PASSWORD`. Configure `DB_SSL=true` in DigitalOcean
+and `DB_SSL_CA_CERT` with the trusted database CA binding. TLS certificate
+verification remains enabled. As in the migration runner, `DB_SSL` defaults
+to `false` for local use; without a custom CA, TLS uses Node's trust store.
+The npm command loads `.env` if present; the Docker image excludes `.env`.
+
+The administrative role needs schema USAGE and table SELECT, INSERT and
+the privilege required for `LOCK TABLE ... IN SHARE ROW EXCLUSIVE MODE`
+(normally UPDATE or DELETE). Do not grant these permissions to the runtime
+database user. Successful migrations alone do not verify all these privileges.
+
+Creation is one transaction. A short table lock serializes writers, including
+concurrent script runs; ordinary SELECT queries remain available. The operation
+may briefly block writes to any employee record. `lock_timeout` limits waiting
+for a lock to five seconds; `statement_timeout` limits individual statements
+to ten seconds. `idle_in_transaction_session_timeout` terminates a session
+after ten seconds idle with a transaction open, releasing its locks. Ten seconds
+is sufficient for this short operation with no interactive pauses; it is not
+a limit on total transaction duration. Existing
+records must exactly match the approved UUID, email (including case), names,
+department, role and employment status. A mismatch or database failure rolls
+back this run. Matching rows are left unchanged, including `created_at` and
+any existing password hash. Unrelated existing employees are left untouched.
+No total database employee-count limit is imposed.
+
+Use two explicit administrative steps after migration 010 is applied:
+
+1. In a separate temporary administrative Job, run `npm run demo:create-employees`
+   and verify the two approved records. Keep the normal `db-migrate` command
+   as `npm run db:migrate` and keep the web-service database role read-only.
+2. Separately run the existing `npm run auth:provision` for each approved email,
+   supplying `AUTH_PROVISION_EMAIL` and `AUTH_PROVISION_PASSWORD` through the
+   administrative environment. Leave `AUTH_PROVISION_OVERWRITE=false`.
+   Creation does not require these variables. Provisioning is not automatic.
+
+Database passwords and provisioning passwords belong only in encrypted,
+component-level runtime secrets. Never put their values in Git, run commands,
+documentation or logs. Do not enable shell tracing or print the environment.
+Remove the temporary Job and its secrets after the administrative work.
+DigitalOcean deployment Jobs may rerun on later deployments; disabling source
+Auto Deploy does not make a deployment Job one-time. Creation is repeat-safe;
+provisioning intentionally refuses an existing hash unless overwrite is enabled.
+Adding, changing or removing components can trigger deployments. Do not replace
+the normal migration Job command, and do not assume a failed deployment reverses
+an already committed administrative operation.
+
+Observed existing behavior in the current repository: `GET /employees` uses
+`RolesGuard` and permits `hr` and `admin`, while `employee` receives 403.
+HR employee routes enforce ownership for all three roles without an HR/admin
+bypass. This describes existing code, not a complete RBAC implementation or
+a guarantee about the currently deployed revision. Issue #39 does not change
+authentication or authorization.
+
+Local verification: `npm run test:demo-employees` runs offline configuration
+checks and explicitly skips database checks unless `DEMO_TEST_PORT` is set.
+For integration tests, supply that variable with the published loopback port
+of a fresh disposable PostgreSQL container using an isolated trust-authenticated
+test database. The tests connect only to `127.0.0.1`, database `postgres`, user
+`postgres`, refuse an existing employees table, apply migrations 001, 005 and
+010, and truncate the test employees table between cases. Never point this
+suite at a shared database. Destroy the disposable container after testing.
+No project `.env` or production credentials are used by the test suite.
+
 `pre-deploy-job.yaml` contains only the `jobs` section for the existing
 `work-guide-hr-app`, based on its exported App Spec.
 This is not a complete App Spec: do not upload it as a replacement for the

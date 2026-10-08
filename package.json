@@ -30,6 +30,8 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
+    "demo:create-employees": "node --env-file-if-exists=.env scripts/create-demo-employees.mjs",
+    "test:demo-employees": "node --test test/database/create-demo-employees.test.mjs",
     "auth:provision": "node --env-file-if-exists=.env --require ts-node/register scripts/provision-password.mjs",
     "test:auth": "npm run build && node --test test/auth/auth.unit.test.cjs test/auth/auth.http.test.cjs",
     "test:database": "npm run build && node --test test/database/database.unit.test.cjs",
