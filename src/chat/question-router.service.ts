@@ -65,15 +65,20 @@ export class QuestionRouterService implements QuestionRouterInterface {
         try {
             const chain = this.model.pipe(new StringOutputParser());
 
-            const rawDecision = await chain.invoke([
-                new SystemMessage(QUESTION_ROUTING_SYSTEM_PROMPT),
-                new HumanMessage(
-                    JSON.stringify({
-                        question,
-                        currentYear: input.currentYear,
-                    }),
-                ),
-            ]);
+            const rawDecision = await chain.invoke(
+                [
+                    new SystemMessage(QUESTION_ROUTING_SYSTEM_PROMPT),
+                    new HumanMessage(
+                        JSON.stringify({
+                            question,
+                            currentYear: input.currentYear,
+                        }),
+                    ),
+                ],
+                {
+                    signal: AbortSignal.timeout(30_000),
+                },
+            );
 
             return questionRoutingSchema.parse(
                 JSON.parse(rawDecision.trim()),

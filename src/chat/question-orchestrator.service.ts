@@ -57,6 +57,7 @@ export class QuestionOrchestratorService
         }
 
         const routingStartedAt = Date.now();
+        console.log('[ROUTER] Начало маршрутизации');
 
         const proposedDecision = await this.router.route({
             question: trimmedQuestion,
