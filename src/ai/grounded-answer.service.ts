@@ -141,7 +141,11 @@ export class GroundedAnswerService implements GroundedAnswerInterface {
             }
 
             return result;
-        } catch {
+        } catch (error: unknown) {
+            console.error(
+                '[RAG] Тип ошибки генерации:',
+                error instanceof Error ? error.name : 'UnknownError',
+            );
             throw new ServiceUnavailableException(
                 'Не удалось получить корректный ответ по документам. Попробуйте позже.',
             );
