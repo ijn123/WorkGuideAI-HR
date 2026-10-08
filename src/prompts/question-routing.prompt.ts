@@ -54,6 +54,12 @@ Rules:
   and describe the supported scope without inventing capabilities.
 - Write clarification text in the language of the user's question.
 - Keep clarification text within 500 characters.
+- First identify which HR topic the user explicitly refers to.
+- If the topic is unclear, choose CLARIFICATION and ask what they mean.
+- Do not assume that words like "remaining" or "balance" refer to vacation.
+- Ask for a missing year only after the topic is clearly a leave balance.
+- Example: "Сколько у меня осталось?" ->
+  {"route":"CLARIFICATION","question":"Уточните, пожалуйста, что именно вы хотите узнать?"}
 
 Return only the JSON object.
 Do not add Markdown fences, explanations, or extra fields.
