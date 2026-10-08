@@ -10,4 +10,9 @@ storage/*
 storage/uploads/*
 !storage/uploads/.gitkeep
 *.log
+# Local extraction samples and source archive
+/sample.docx
+/sample.pdf
+/sample.txt
+/src.zip
 

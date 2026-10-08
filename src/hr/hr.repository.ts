@@ -15,12 +15,26 @@ import {
 import type { HrRequest } from './entities/hr-request.entity';
 import type { LeaveBalance } from './entities/leave-balance.entity';
 import type { OnboardingTask } from './entities/onboarding-task.entity';
+import type {
+    HrRequestsRepositoryInterface,
+} from './interfaces/hr-requests-repository.interface';
+import type {
+    LeaveBalancesRepositoryInterface,
+} from './interfaces/leave-balances-repository.interface';
+import type {
+    OnboardingTasksRepositoryInterface,
+} from './interfaces/onboarding-tasks-repository.interface';
 
 
 @Injectable()
-export class HrRepository {
-    constructor(private readonly database: DatabaseService) {
-    }
+export class HrRepository
+    implements
+        HrRequestsRepositoryInterface,
+        LeaveBalancesRepositoryInterface,
+        OnboardingTasksRepositoryInterface
+{
+
+    constructor(private readonly database: DatabaseService) {}
 
     async findRequestsByEmployeeId(
         employeeId: string,

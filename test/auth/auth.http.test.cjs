@@ -13,9 +13,11 @@ const { AppController } = require('../../dist/app.controller');
 const { EmployeesModule } = require('../../dist/employees/employees.module');
 const { EmployeesService } = require('../../dist/employees/employees.service');
 const { HrModule } = require('../../dist/hr/hr.module');
-const { HrService } = require('../../dist/hr/hr.service');
+const { LeaveBalancesService } = require('../../dist/hr/leave-balances.service');
+const { HrRequestsService } = require('../../dist/hr/hr-requests.service');
+const { OnboardingTasksService } = require('../../dist/hr/onboarding-tasks.service');
 const { ChatModule } = require('../../dist/chat/chat.module');
-const { GeminiService } = require('../../dist/ai/gemini.service');
+const { QuestionOrchestratorService } = require('../../dist/chat/question-orchestrator.service');
 const { DatabaseService } = require('../../dist/database/database.service');
 
 describe('Authentication endpoint integration', { concurrency: false }, () => {
@@ -39,9 +41,9 @@ describe('Authentication endpoint integration', { concurrency: false }, () => {
             return originalLogin.call(this, body);
         });
         const originalAsk = ChatService.prototype.ask;
-        chatSpy = mock.method(ChatService.prototype, 'ask', async function (question) {
+        chatSpy = mock.method(ChatService.prototype, 'ask', async function (question, user) {
             chatCalls.push(question);
-            return originalAsk.call(this, question);
+            return originalAsk.call(this, question, user);
         });
         const hash = await new PasswordService().hash(fixtures.PASSWORD);
         mock.method(DatabaseService.prototype, 'onModuleInit', async () => {});
@@ -65,21 +67,30 @@ describe('Authentication endpoint integration', { concurrency: false }, () => {
             if (serviceError) throw serviceError;
             return [];
         });
-        mock.method(GeminiService.prototype, 'ask', async question => {
-            calls.push(['chat', question]);
+        mock.method(QuestionOrchestratorService.prototype, 'ask', async (question, user) => {
+            calls.push(['chat', question, user]);
             if (serviceError) throw serviceError;
-            return 'Fictional offline answer';
+            return {
+                route: 'CLARIFICATION',
+                question: 'Уточните ваш вопрос.',
+            };
         });
-        for (const [method, name] of [
-            ['getLeaveBalance', 'leave'],
-            ['findRequestsByEmployeeId', 'requests'],
-            ['findOnboardingTasksByEmployeeId', 'onboarding'],
+        for (const [Service, method, name] of [
+            [LeaveBalancesService, 'getLeaveBalance', 'leave'],
+            [HrRequestsService, 'findRequestsByEmployeeId', 'requests'],
+            [OnboardingTasksService, 'findOnboardingTasksByEmployeeId', 'onboarding'],
         ]) {
-            mock.method(HrService.prototype, method, async (...args) => {
+            mock.method(Service.prototype, method, async (...args) => {
                 calls.push([name, ...args]);
                 if (serviceError) throw serviceError;
                 return name === 'leave'
-                    ? { employeeId: args[0], year: args[1], entitledDays: 25, usedDays: 5, remainingDays: 20 }
+                    ? {
+                        employeeId: args[0],
+                        year: args[1],
+                        entitledDays: 25,
+                        usedDays: 5,
+                        remainingDays: 20,
+                    }
                     : [];
             });
         }
@@ -251,8 +262,22 @@ describe('Authentication endpoint integration', { concurrency: false }, () => {
             const result = await http(method, path, token, body);
             assert.equal(result.status, method === 'POST' ? 201 : 200);
             assert.equal(calls[0][0], handler);
+            if (path === '/chat') {
+                assert.deepEqual(calls, [
+                    ['chat', 'Test question', {
+                        employeeId: fixtures.EMPLOYEE_ID,
+                        role: 'employee',
+                    }],
+                ]);
+            }
             assert.deepEqual(result.body, method === 'POST'
-                ? { question: 'Test question', answer: 'Fictional offline answer' }
+                ? {
+                    question: 'Test question',
+                    result: {
+                        route: 'CLARIFICATION',
+                        question: 'Уточните ваш вопрос.',
+                    },
+                }
                 : []);
         });
     }

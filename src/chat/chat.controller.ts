@@ -1,5 +1,7 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '../auth/guards/auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { ChatService } from './chat.service';
 import { AskQuestionDto } from './dto/requests/ask-question.dto';
 import type {
@@ -12,15 +14,12 @@ export class ChatController {
     constructor(private readonly chatService: ChatService) {}
 
     @Post()
-    async ask(
+    ask(
         @Body()
         body: AskQuestionDto,
+        @CurrentUser()
+        currentUser: AuthenticatedUser,
     ): Promise<AskQuestionResponseDto> {
-        const result = await this.chatService.ask(body.question);
-
-        return {
-            question: result.question,
-            answer: result.answer,
-        };
+        return this.chatService.ask(body.question, currentUser);
     }
 }

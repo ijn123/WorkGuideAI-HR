@@ -20,6 +20,17 @@ function environment() {
         JWT_EXPIRES_IN_SECONDS: TTL,
         GEMINI_API_KEY: 'FAKE-TEST-ONLY-NOT-AN-API-KEY',
         GEMINI_CHAT_MODEL: 'gemini-2.5-flash',
+        GEMINI_EMBEDDING_MODEL: 'gemini-embedding-001',
+        GEMINI_EMBEDDING_DIMENSIONS: 3072,
+        QDRANT_URL: 'http://127.0.0.1:6333',
+        QDRANT_COLLECTION: 'fake_test_collection',
+        QDRANT_API_KEY: '',
+        INGESTION_CHUNK_SIZE: 1000,
+        INGESTION_CHUNK_OVERLAP: 200,
+        INGESTION_MAX_FILE_SIZE_MB: 10,
+        RETRIEVAL_TOP_K: 5,
+        RETRIEVAL_SCORE_THRESHOLD: 0.65,
+        RAG_MAX_CONTEXT_CHARS: 12000,
     };
 }
 
