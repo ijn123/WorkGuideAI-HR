@@ -78,15 +78,28 @@ export class GroundedAnswerService implements GroundedAnswerInterface {
         try {
             const chain = this.model.pipe(new StringOutputParser());
 
-            const rawAnswer = await chain.invoke([
-                new SystemMessage(GROUNDED_ANSWER_SYSTEM_PROMPT),
-                new HumanMessage(
-                    JSON.stringify({
-                        question,
-                        evidence: input.evidence,
-                    }),
-                ),
-            ]);
+            const startedAt = Date.now();
+            console.log('[RAG] Генерация ответа началась');
+
+            const rawAnswer = await chain.invoke(
+                [
+                    new SystemMessage(GROUNDED_ANSWER_SYSTEM_PROMPT),
+                    new HumanMessage(
+                        JSON.stringify({
+                            question,
+                            evidence: input.evidence,
+                        }),
+                    ),
+                ],
+                {
+                    signal: AbortSignal.timeout(30_000),
+                },
+            );
+            console.log(
+                '[RAG] Генерация завершена за',
+                Date.now() - startedAt,
+                'мс',
+            );
 
             const result = groundedAnswerSchema.parse(
                 JSON.parse(rawAnswer.trim()),

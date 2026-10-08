@@ -56,10 +56,17 @@ export class DocumentRagService implements DocumentRagInterface {
             sources: [],
         });
 
+        console.log('[RAG] Начало поиска фрагментов');
+
+        const retrievalStartedAt = Date.now();
+
         const chunks = await this.retrieval.retrieve({
             question,
             role: input.role,
         });
+        console.log('[RAG] Поиск, мс:', Date.now() - retrievalStartedAt);
+
+        console.log('[RAG] Поиск завершён, фрагментов:', chunks.length);
 
         if (chunks.length === 0) {
             return insufficient();

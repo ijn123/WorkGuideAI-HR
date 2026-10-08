@@ -56,10 +56,14 @@ export class QuestionOrchestratorService
             throw new Error('Вопрос не должен быть пустым.');
         }
 
+        const routingStartedAt = Date.now();
+
         const proposedDecision = await this.router.route({
             question: trimmedQuestion,
             currentYear: new Date().getUTCFullYear(),
         });
+
+        console.log('[ROUTER] Маршрутизация, мс:', Date.now() - routingStartedAt);
 
         const decision = questionRoutingSchema.parse(proposedDecision);
         switch (decision.route) {
