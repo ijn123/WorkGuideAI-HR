@@ -1,14 +1,50 @@
-import { z } from 'zod';
+import { Transform } from 'class-transformer';
+import { IsNotEmpty, IsString, Matches, MaxLength } from 'class-validator';
 
-export const createEmployeeSchema = z
-    .object({
-        firstName: z.string().trim().min(1).max(100),
-        lastName: z.string().trim().min(1).max(100),
-        workEmail: z.string().trim().email().max(254),
-        department: z.string().trim().min(1).max(100),
+export class CreateEmployeeDto {
+    @Transform(({ value }: { value: unknown }) =>
+        typeof value === 'string' ? value.trim() : value,
+    )
+    @IsString()
+    @IsNotEmpty()
+    // Count UTF-16 code units as the previous schema did; the value is trimmed.
+    @Matches(/^[\s\S]{0,100}$/, {
+        message: 'firstName must not exceed 100 UTF-16 code units.',
     })
-    .strict();
+    firstName!: string;
 
-export type CreateEmployeeDto = z.infer<
-    typeof createEmployeeSchema
->;
+    @Transform(({ value }: { value: unknown }) =>
+        typeof value === 'string' ? value.trim() : value,
+    )
+    @IsString()
+    @IsNotEmpty()
+    // Count UTF-16 code units as the previous schema did; the value is trimmed.
+    @Matches(/^[\s\S]{0,100}$/, {
+        message: 'lastName must not exceed 100 UTF-16 code units.',
+    })
+    lastName!: string;
+
+    @Transform(({ value }: { value: unknown }) =>
+        typeof value === 'string' ? value.trim().toLowerCase() : value,
+    )
+    @IsString()
+    @IsNotEmpty()
+    // Preserve the email format accepted by the previous request schema.
+    @Matches(
+        /^(?:[A-Za-z0-9_'+\-]+\.)*[A-Za-z0-9_'+\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$/,
+        { message: 'workEmail must be an email' },
+    )
+    @MaxLength(254)
+    workEmail!: string;
+
+    @Transform(({ value }: { value: unknown }) =>
+        typeof value === 'string' ? value.trim() : value,
+    )
+    @IsString()
+    @IsNotEmpty()
+    // Count UTF-16 code units as the previous schema did; the value is trimmed.
+    @Matches(/^[\s\S]{0,100}$/, {
+        message: 'department must not exceed 100 UTF-16 code units.',
+    })
+    department!: string;
+}

@@ -1,9 +1,10 @@
 const assert = require('node:assert/strict');
 const { before, describe, it } = require('node:test');
 const fixtures = require('./fixtures.cjs');
-const { UnauthorizedException, InternalServerErrorException, Logger } = require('@nestjs/common');
+const { UnauthorizedException, InternalServerErrorException, Logger, ValidationPipe } = require('@nestjs/common');
 const { ROUTE_ARGS_METADATA } = require('@nestjs/common/constants');
-const { loginSchema } = require('../../dist/auth/dto/login.dto');
+const { LoginDto } = require('../../dist/auth/dto/login.dto');
+const { AskQuestionDto } = require('../../dist/chat/dto/requests/ask-question.dto');
 const { PasswordService } = require('../../dist/auth/password.service');
 const { AuthService } = require('../../dist/auth/auth.service');
 const { AuthGuard } = require('../../dist/auth/guards/auth.guard');
@@ -20,29 +21,105 @@ async function expect401(operation, response = new UnauthorizedException().getRe
     });
 }
 
+const validationPipe = new ValidationPipe({
+    transform: true,
+    whitelist: true,
+    forbidNonWhitelisted: true,
+});
+
+function validateBody(metatype, value) {
+    return validationPipe.transform(value, { type: 'body', metatype });
+}
+
+async function expect400(operation) {
+    await assert.rejects(operation, error => {
+        assert.equal(error.getStatus(), 400);
+        return true;
+    });
+}
+
 describe('Login DTO', () => {
     const valid = { workEmail: fixtures.EMAIL, password: fixtures.PASSWORD };
 
-    it('accepts credentials, normalizes email and preserves exact password', () => {
-        const result = loginSchema.parse({ ...valid, workEmail: ` ${fixtures.EMAIL.toUpperCase()} ` });
+    it('normalizes email, preserves exact password and returns a DTO instance', async () => {
+        const result = await validateBody(LoginDto, { ...valid, workEmail: ` ${fixtures.EMAIL.toUpperCase()} ` });
+        assert.ok(result instanceof LoginDto);
         assert.equal(result.workEmail, fixtures.EMAIL);
-        assert.ok(result.password === fixtures.PASSWORD);
+        assert.equal(result.password, fixtures.PASSWORD);
     });
 
-    for (const [name, value] of [
-        ['invalid email', { ...valid, workEmail: 'invalid' }],
-        ['empty password', { ...valid, password: '' }],
-        ['oversized ASCII password', { ...valid, password: 'a'.repeat(1025) }],
-        ['oversized Unicode password', { ...valid, password: '😀'.repeat(257) }],
-        ['unknown fields', { ...valid, role: 'admin' }],
-    ]) {
-        it(`rejects ${name}`, () => assert.equal(loginSchema.safeParse(value).success, false));
+    for (const field of ['workEmail', 'password']) {
+        it(`rejects missing ${field}`, async () => {
+            const body = { ...valid };
+            delete body[field];
+            await expect400(() => validateBody(LoginDto, body));
+        });
+        for (const [name, value] of [
+            ['null', null], ['empty string', ''], ['number', 42],
+            ['boolean', true], ['array', ['test']], ['object', { value: 'test' }],
+        ]) {
+            it(`rejects ${name} for ${field}`, async () => {
+                await expect400(() => validateBody(LoginDto, { ...valid, [field]: value }));
+            });
+        }
     }
 
-    it('accepts the exact 1024 UTF-8 byte boundary for ASCII and Unicode', () => {
+    for (const workEmail of ['invalid', '   ', 'a..b@example.com', 'a@example', 'é@example.com']) {
+        it(`rejects invalid email ${JSON.stringify(workEmail)}`, async () => {
+            await expect400(() => validateBody(LoginDto, { ...valid, workEmail }));
+        });
+    }
+
+    it('rejects unknown properties', async () => {
+        await expect400(() => validateBody(LoginDto, { ...valid, role: 'admin' }));
+    });
+
+    it('preserves the normalized email length boundary and existing email format', async () => {
+        const workEmail = 'a'.repeat(64) + '@' + 'b'.repeat(63) + '.' + 'c'.repeat(63) + '.' + 'd'.repeat(57) + '.com';
+        assert.equal(workEmail.length, 254);
+        assert.equal((await validateBody(LoginDto, { ...valid, workEmail: ` ${workEmail.toUpperCase()} ` })).workEmail, workEmail);
+        await expect400(() => validateBody(LoginDto, { ...valid, workEmail: 'a' + workEmail }));
+    });
+
+    it('preserves the exact 1024 and 1025 UTF-8 byte boundaries for ASCII and Unicode', async () => {
         for (const password of ['a'.repeat(1024), '😀'.repeat(256)]) {
             assert.equal(Buffer.byteLength(password, 'utf8'), 1024);
-            assert.equal(loginSchema.safeParse({ ...valid, password }).success, true);
+            assert.equal((await validateBody(LoginDto, { ...valid, password })).password, password);
+            const oversized = password + 'a';
+            assert.equal(Buffer.byteLength(oversized, 'utf8'), 1025);
+            await expect400(() => validateBody(LoginDto, { ...valid, password: oversized }));
+        }
+    });
+
+    it('preserves whitespace-only passwords without introducing a password policy', async () => {
+        assert.equal((await validateBody(LoginDto, { ...valid, password: '   ' })).password, '   ');
+    });
+});
+
+describe('Question DTO', () => {
+    for (const [name, body] of [
+        ['missing question', {}], ['null question', { question: null }],
+        ['empty question', { question: '' }], ['whitespace question', { question: ' \t\n ' }],
+        ['numeric question', { question: 42 }], ['boolean question', { question: false }],
+        ['array question', { question: ['test'] }], ['object question', { question: { value: 'test' } }],
+        ['unknown properties', { question: 'test', employeeId: fixtures.EMPLOYEE_ID }],
+    ]) {
+        it(`rejects ${name}`, async () => {
+            await expect400(() => validateBody(AskQuestionDto, body));
+        });
+    }
+
+    it('trims the question and returns a DTO instance', async () => {
+        const result = await validateBody(AskQuestionDto, { question: ' \tTest question\n ' });
+        assert.ok(result instanceof AskQuestionDto);
+        assert.equal(result.question, 'Test question');
+    });
+
+    it('preserves the normalized 4000 and 4001 UTF-16 length boundaries', async () => {
+        for (const question of ['a'.repeat(4000), '😀'.repeat(2000)]) {
+            assert.equal(question.length, 4000);
+            assert.equal((await validateBody(AskQuestionDto, { question: ` ${question} ` })).question, question);
+            await expect400(() => validateBody(AskQuestionDto, { question: question + 'a' }));
         }
     });
 });

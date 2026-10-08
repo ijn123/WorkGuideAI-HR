@@ -1,15 +1,9 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import type {
-    AuthenticatedUser,
-} from '../auth/types/authenticated-user';
+import type { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { ChatService } from './chat.service';
-import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
-import {
-    askQuestionSchema,
-    type AskQuestionDto,
-} from './dto/requests/ask-question.dto';
+import { AskQuestionDto } from './dto/requests/ask-question.dto';
 import type {
     AskQuestionResponseDto,
 } from './dto/responses/ask-question-response.dto';
@@ -21,7 +15,7 @@ export class ChatController {
 
     @Post()
     ask(
-        @Body(new ZodValidationPipe(askQuestionSchema))
+        @Body()
         body: AskQuestionDto,
         @CurrentUser()
         currentUser: AuthenticatedUser,
